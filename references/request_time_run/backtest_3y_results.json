@@ -1,0 +1,263 @@
+{
+  "meta": {
+    "generated_at": "2026-05-29T16:33:23",
+    "data_sources": {
+      "SPY_QQQ": "Nasdaq public historical quote API; close prices are price-return, dividends excluded",
+      "VIX": "Cboe VIX_History.csv",
+      "CAPE": "multpl.com Shiller PE table by month"
+    },
+    "start": "2023-05-30",
+    "end": "2026-05-28",
+    "trading_days": 752
+  },
+  "assumptions": {
+    "initial_capital": 100000.0,
+    "weekly_budget": 2000.0,
+    "transaction_cost": 0.0015,
+    "benchmark": "50/50 SPY/QQQ buy-and-hold plus weekly 1x budget",
+    "strategy": "valuation/risk-aware DCA with cash reservoir, monthly trim throttle"
+  },
+  "strategy": {
+    "final_value": 615985.99,
+    "total_contributed": 414000.0,
+    "profit": 201985.99,
+    "return_on_contributed": 0.4878888538096662,
+    "xirr": 0.22541301342988107,
+    "max_drawdown": -0.16478940730187785,
+    "volatility": 0.1616706621633898,
+    "sharpe": 1.346971253945142,
+    "sortino": 1.8076473815729521,
+    "win_rate": 0.5805592543275633,
+    "avg_cash_pct": 0.052499312112342156,
+    "ending_cash_pct": 0.15571534739586193,
+    "ending_spy_weight": 0.45109122180762934,
+    "ending_qqq_weight": 0.39319343079650876,
+    "trade_count": 160
+  },
+  "benchmark": {
+    "final_value": 647531.02,
+    "total_contributed": 414000.0,
+    "profit": 233531.02,
+    "return_on_contributed": 0.5640845836597705,
+    "xirr": 0.2554801151310808,
+    "max_drawdown": -0.1782336470780742,
+    "volatility": 0.17233336833079288,
+    "sharpe": 1.3805306753614583,
+    "sortino": 1.8628251568228795,
+    "win_rate": 0.5805592543275633
+  },
+  "relative": {
+    "final_value_diff": -31545.03,
+    "xirr_diff": -0.03006710170119975,
+    "max_drawdown_diff": 0.013444239776196354
+  },
+  "regime_distribution": {
+    "elevated": 0.3324,
+    "expensive": 0.363,
+    "extreme_valuation": 0.0013,
+    "fair": 0.0864,
+    "very_expensive": 0.2168
+  },
+  "multiplier_distribution": {
+    "0.5": 0.0838,
+    "0.75": 0.5426,
+    "1.0": 0.2846,
+    "1.25": 0.0771,
+    "1.5": 0.004,
+    "2.0": 0.008
+  },
+  "latest_signal": {
+    "date": "2026-05-28",
+    "regime": "extreme_valuation",
+    "multiplier": 0.75,
+    "target_spy_weight": 0.6,
+    "target_qqq_weight": 0.4,
+    "cape": 42.55,
+    "vix": 15.74,
+    "rsi14": 73.18227305338215,
+    "cash_pct": 0.15571534739586193,
+    "reason": "CAPE=42.5:extreme_valuation; overbought_expensive_soft_cap:RSI=73.2; trend_confirmed_min_0_75x"
+  },
+  "recent_trades": [
+    {
+      "date": "2026-01-29",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.6,
+      "qqq_weight": 0.4,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-02-05",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-02-12",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-02-19",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-02-26",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-03-05",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "expensive"
+    },
+    {
+      "date": "2026-03-12",
+      "action": "DCA_BUY",
+      "amount": 1000.0,
+      "multiplier": 0.5,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "expensive"
+    },
+    {
+      "date": "2026-03-19",
+      "action": "DCA_BUY",
+      "amount": 1000.0,
+      "multiplier": 0.5,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "expensive"
+    },
+    {
+      "date": "2026-03-26",
+      "action": "DCA_BUY",
+      "amount": 1000.0,
+      "multiplier": 0.5,
+      "spy_weight": 0.85,
+      "qqq_weight": 0.15,
+      "regime": "expensive"
+    },
+    {
+      "date": "2026-03-27",
+      "action": "MONTHLY_TRIM",
+      "proceeds": 20689.94,
+      "trim_spy_frac": 0.0,
+      "trim_qqq_frac": 0.1,
+      "regime": "expensive",
+      "reason": "CAPE=37.7:expensive; panic_override:VIX=31.1,RSI=28.1,DD=-8.8%; monthly_risk_off_trim"
+    },
+    {
+      "date": "2026-04-02",
+      "action": "DCA_BUY",
+      "amount": 1000.0,
+      "multiplier": 0.5,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-04-09",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.65,
+      "qqq_weight": 0.35,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-04-16",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.55,
+      "qqq_weight": 0.45,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-04-23",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.55,
+      "qqq_weight": 0.45,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-04-30",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.55,
+      "qqq_weight": 0.45,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-05-07",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.6,
+      "qqq_weight": 0.4,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-05-14",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.6,
+      "qqq_weight": 0.4,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-05-14",
+      "action": "MONTHLY_TRIM",
+      "proceeds": 7282.04,
+      "trim_spy_frac": 0.0,
+      "trim_qqq_frac": 0.03,
+      "regime": "very_expensive",
+      "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=78.5; trend_confirmed_min_0_75x; monthly_profit_lock_micro_trim"
+    },
+    {
+      "date": "2026-05-21",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.6,
+      "qqq_weight": 0.4,
+      "regime": "very_expensive"
+    },
+    {
+      "date": "2026-05-28",
+      "action": "DCA_BUY",
+      "amount": 1500.0,
+      "multiplier": 0.75,
+      "spy_weight": 0.6,
+      "qqq_weight": 0.4,
+      "regime": "extreme_valuation"
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "generated_at": "2026-05-29T17:26:14+08:00",
+    "skill_dir": "/Users/bytedance/.hermes/skills/research/us-etf-quant-system",
+    "data_sources": {
+      "SPY_QQQ": "Nasdaq public historical quote API; dividends excluded",
+      "VIX": "Cboe VIX_History.csv",
+      "CAPE": "multpl.com Shiller PE monthly table"
+    }
+  },
+  "market": {
+    "latest_market_date": "2026-05-28",
+    "spy_close": 754.6,
+    "qqq_close": 735.6,
+    "spy_sma50": 701.77,
+    "spy_sma200": 680.61,
+    "spy_vs_sma200_pct": 10.87,
+    "spy_sma50_vs_sma200_pct": 3.11,
+    "spy_rsi14": 73.18,
+    "spy_ret_21d_pct": 6.03,
+    "spy_drawdown_252d_pct": 0.0,
+    "vix": 15.74,
+    "vix_sma20": 17.35,
+    "cape": 42.55,
+    "qqq_rel_63d_pct": 10.29,
+    "spy_daily_return_pct": 0.55,
+    "qqq_daily_return_pct": 0.84,
+    "trend_up": true,
+    "trend_strong": true,
+    "risk_off": false
+  },
+  "diagnosis": {
+    "summary": "极高估值 + 强趋势 + 低波动：牛市惯性仍在，但追高性价比差",
+    "regime": "extreme_valuation",
+    "rule_reason": "CAPE=42.5:extreme_valuation; overbought_expensive_soft_cap:RSI=73.2; trend_confirmed_min_0_75x"
+  },
+  "decision": {
+    "dca_multiplier": 0.75,
+    "new_buy_spy_weight_pct": 60.0,
+    "new_buy_qqq_weight_pct": 40.0,
+    "trim_spy_pct": 0.0,
+    "trim_qqq_pct_rule": 0.0,
+    "trim_signal_qqq_pct_now": 0.0,
+    "trim_reason_now": "none",
+    "action_label": "降低定投但不中断"
+  },
+  "portfolio": {
+    "total_value": 332811.13,
+    "spy_value": 160216.13,
+    "qqq_value": 172595.0,
+    "spy_weight_pct": 48.14,
+    "qqq_weight_pct": 51.86,
+    "weekly_plan": 2000.0
+  },
+  "recommended": {
+    "action": "降低定投但不中断",
+    "weekly_budget_base": 2000.0,
+    "dca_multiplier": 0.75,
+    "total_buy": 1500.0,
+    "spy_buy": 900.0,
+    "qqq_buy": 600.0,
+    "new_buy_spy_weight_pct": 60.0,
+    "new_buy_qqq_weight_pct": 40.0,
+    "after_buy_spy_weight_pct": 48.19,
+    "after_buy_qqq_weight_pct": 51.81,
+    "trim_signal_qqq_pct": 0.0,
+    "trim_signal_qqq_amount": 0.0,
+    "trim_reason": "none",
+    "diagnostic_shift_qqq_to_spy_to_match_new_buy_target": 39470.55
+  },
+  "recent_signals": [
+    {
+      "date": "2026-05-26",
+      "action": "降低定投但不中断",
+      "dca_multiplier": 0.75,
+      "spy_buy_weight_pct": 60.0,
+      "qqq_buy_weight_pct": 40.0,
+      "trim_qqq_pct": 0.0,
+      "trim_reason": "none",
+      "cape": 41.04,
+      "vix": 17.01,
+      "rsi14": 71.26,
+      "spy_vs_sma200_pct": 10.47,
+      "qqq_rel_63d_pct": 10.02,
+      "regime": "very_expensive",
+      "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=71.3; trend_confirmed_min_0_75x"
+    },
+    {
+      "date": "2026-05-27",
+      "action": "降低定投但不中断",
+      "dca_multiplier": 0.75,
+      "spy_buy_weight_pct": 60.0,
+      "qqq_buy_weight_pct": 40.0,
+      "trim_qqq_pct": 0.0,
+      "trim_reason": "none",
+      "cape": 41.04,
+      "vix": 16.29,
+      "rsi14": 71.1,
+      "spy_vs_sma200_pct": 10.36,
+      "qqq_rel_63d_pct": 9.25,
+      "regime": "very_expensive",
+      "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=71.1; trend_confirmed_min_0_75x"
+    },
+    {
+      "date": "2026-05-28",
+      "action": "降低定投但不中断",
+      "dca_multiplier": 0.75,
+      "spy_buy_weight_pct": 60.0,
+      "qqq_buy_weight_pct": 40.0,
+      "trim_qqq_pct": 0.0,
+      "trim_reason": "none",
+      "cape": 42.55,
+      "vix": 15.74,
+      "rsi14": 73.18,
+      "spy_vs_sma200_pct": 10.87,
+      "qqq_rel_63d_pct": 10.29,
+      "regime": "extreme_valuation",
+      "reason": "CAPE=42.5:extreme_valuation; overbought_expensive_soft_cap:RSI=73.2; trend_confirmed_min_0_75x"
+    }
+  ],
+  "logic": {
+    "increase_dca_when": [
+      "CAPE falls below 35 with trend still above SMA200 -> at least 1.0x",
+      "VIX>=30 and RSI<=35 or drawdown<=-8% -> panic override, 1.0x-1.5x depending valuation",
+      "CAPE<30 -> 1.25x or higher valuation-driven accumulation"
+    ],
+    "decrease_dca_when": [
+      "CAPE>=35 and RSI>=70 -> cap DCA at 0.75x",
+      "VIX>=25 without oversold confirmation -> cap DCA at 0.5x",
+      "SPY below SMA200 without panic/oversold confirmation -> cap DCA at 0.5x"
+    ],
+    "trim_when": [
+      "CAPE>=42 and RSI>=75 -> monthly QQQ micro-trim 3%",
+      "CAPE>=40 and RSI>=78 -> monthly QQQ profit-lock trim 3%",
+      "SPY below SMA200 and VIX>=30 -> QQQ risk-off trim 10%"
+    ]
+  }
+}
