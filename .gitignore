@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+work/
+outputs/
+references/data_cache/
+!references/cape_vintage.csv
+*.egg-info/
+dist/
+build/

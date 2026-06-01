@@ -1,0 +1,44 @@
+{
+  "updated_at": "2026-06-01",
+  "funds": [
+    {
+      "fund_code": "513500",
+      "name": "博时标普500ETF",
+      "index": "S&P 500",
+      "latest_price": 2.350,
+      "nav": 2.340,
+      "iopv": 2.345,
+      "premium_pct": 0.21,
+      "volume": 85000000,
+      "turnover_pct": 1.2,
+      "subscription_status": "open",
+      "redemption_status": "open"
+    },
+    {
+      "fund_code": "513100",
+      "name": "国泰纳指100ETF",
+      "index": "Nasdaq-100",
+      "latest_price": 3.120,
+      "nav": 3.080,
+      "iopv": 3.090,
+      "premium_pct": 0.97,
+      "volume": 120000000,
+      "turnover_pct": 1.5,
+      "subscription_status": "open",
+      "redemption_status": "open"
+    },
+    {
+      "fund_code": "159941",
+      "name": "广发纳指100ETF",
+      "index": "Nasdaq-100",
+      "latest_price": 2.890,
+      "nav": 2.850,
+      "iopv": 2.860,
+      "premium_pct": 1.05,
+      "volume": 45000000,
+      "turnover_pct": 0.8,
+      "subscription_status": "open",
+      "redemption_status": "open"
+    }
+  ]
+}

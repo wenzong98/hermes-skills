@@ -139,38 +139,42 @@ Do not execute repeated daily sells from a persistent signal. The system produce
 
 The packaged script uses a cash-reservoir model:
 
-1. Start with initial capital.
-2. Add a fixed weekly budget to strategy cash and benchmark cash.
-3. Strategy invests `weekly_budget × multiplier`, capped by available cash.
-4. Benchmark invests the full weekly budget into static 50/50 SPY/QQQ.
-5. Strategy can accumulate cash in expensive/risk-off regimes.
-6. Strategy can deploy more than 1x weekly budget only if cash reservoir exists.
-7. If the simulated cash reservoir exceeds 20%-30% while trend and volatility remain supportive, the engine lifts the DCA floor to reduce long-term cash drag.
-8. New buys use 80/20 core-satellite allocation; only the 20% satellite sleeve rotates by relative strength / panic state.
+1. Start with initial capital on the first tradable row after a valid prior signal exists.
+2. Use completed-close indicators only from the next trading bar onward by default.
+3. Execute at next open by default; `same_close` is research-only and marked as lookahead.
+4. Delay monthly CAPE observations by 10 business days before daily use.
+5. Add a fixed weekly budget to strategy cash and benchmark cash.
+6. Strategy invests `weekly_budget × multiplier`, capped by available cash.
+7. Benchmark invests the full weekly budget into static 50/50 SPY/QQQ.
+8. Strategy can accumulate cash in expensive/risk-off regimes.
+9. Strategy can deploy more than 1x weekly budget only if cash reservoir exists.
+10. If the simulated cash reservoir exceeds 20%-30% while trend and volatility remain supportive, the engine lifts the DCA floor to reduce long-term cash drag.
+11. New buys use 80/20 core-satellite allocation; only the 20% satellite sleeve rotates by relative strength / panic state.
 
 Metrics are contribution-aware:
 
 - XIRR for annualized money-weighted return.
 - Cash-flow-adjusted daily returns for volatility, Sharpe, Sortino, win rate.
-- Max drawdown from portfolio value series.
+- Unitized max drawdown for strategy-vs-benchmark comparison.
+- Account-value max drawdown as a separate user-experience metric.
 
 ## 8. Latest backtest interpretation
 
-3-year window: 2023-05-30 → 2026-05-28.
+3-year window: 2023-05-31 → 2026-05-29, using previous-close signals, next-open execution, and a 10-business-day CAPE availability lag.
 
 - The fully invested 50/50 benchmark outperformed because this was a strong bull-market window.
-- The optimized strategy intentionally held more cash and tilted more SPY as valuation became stretched.
-- The trade-off was lower XIRR but lower max drawdown and a cash reservoir for future dislocations.
-- Latest regime is extreme valuation, but trend/VIX remain supportive, so the rule is 0.75x rather than a full pause.
+- The optimized strategy intentionally held more cash; the latest lagged CAPE value is very expensive but not in the extreme valuation bucket.
+- The trade-off was lower XIRR, slightly lower unitized drawdown, and a cash reservoir for future dislocations.
+- Latest regime is very expensive, but trend/VIX remain supportive, so the rule is 0.75x rather than a full pause.
 
 Latest signal from the packaged run:
 
-- CAPE: 42.55.
+- CAPE: 41.04.
 - VIX: 15.74.
 - RSI14: 73.18.
 - DCA multiplier: 0.75x.
-- New-buy allocation: SPY 60% / QQQ 40%.
-- Cash reservoir: 15.57%.
+- New-buy allocation: SPY 40% / QQQ 60%.
+- Cash reservoir: 14.85%.
 
 ## 9. How to adjust risk appetite
 
@@ -197,10 +201,10 @@ The user's stored plan is a weekly 2000 unit定投. Translate multiplier into ex
 - 1.5x: 3000.
 - 2.0x: 4000.
 
-For the latest signal (0.75x, SPY 60% / QQQ 40%):
+For the latest signal (0.75x, SPY 40% / QQQ 60%):
 
 - Total weekly buy: 1500.
-- SPY/S&P 500-like fund: 900.
-- QQQ/Nasdaq-100-like fund: 600.
+- SPY/S&P 500-like fund: 600.
+- QQQ/Nasdaq-100-like fund: 900.
 
 If the platform only supports the existing S&P 500定投, either keep that plan at 1000-1500 and manually add Nasdaq buys, or update the plan to split across the S&P 500 and Nasdaq funds.

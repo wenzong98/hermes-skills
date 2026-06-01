@@ -1,11 +1,11 @@
 {
   "meta": {
-    "strategy_version": "1.3.0-total-return",
-    "generated_at": "2026-06-01T10:26:56",
-    "git_commit": "c59a2d124be212bdb850f71299bb952995cd23a4",
+    "strategy_version": "1.3.0-rc",
+    "generated_at": "2026-06-01T09:04:03",
+    "git_commit": "da4cdd5be2431e13766f6db1efe9cc6ea805bbba",
     "git_dirty": true,
-    "script_sha256": "0c4771311a14012a7c0cc6b8e532f1c79b6b17dae7f118c3a1eea1fc3824d34f",
-    "data_snapshot_sha256": "80a93cfae65e06dc7852ba348da1dca6b18b8a8214b1da5324ecde4d7d828d2c",
+    "script_sha256": "739010b93e4fd828717bc88a8d8af4aae0daaf0de78a1c176e10dda49a58af82",
+    "data_snapshot_sha256": "a427a1e54a93afa1e075ae8fefc86317f6d3cbb153d6aecd792781a17c586e3c",
     "data_sources": {
       "SPY_QQQ": "Adjusted OHLC when an adjusted provider is selected; Nasdaq fallback is price-return and excludes dividends",
       "VIX": "Cboe VIX_History.csv",
@@ -17,24 +17,19 @@
     "end": "2026-05-29",
     "trading_days": 752,
     "price_source": "yahoo_chart_adjusted",
-    "actual_price_source_spy": "yahoo_chart_adjusted",
-    "actual_price_source_qqq": "yahoo_chart_adjusted",
+    "actual_price_source_spy": null,
+    "actual_price_source_qqq": null,
     "adjusted_for_dividends": true,
     "price_return_only": false,
     "cape_source": "vintage_file:cape_vintage.csv",
-    "cape_vintage_path": "/Users/bytedance/.hermes/skills/research/us-etf-quant-system/references/cape_vintage.csv",
-    "latest_vintage_file_observation_month": "2026-05-29",
-    "latest_vintage_file_available_at": "2026-06-12",
-    "latest_used_cape_observation_month": "2026-05-01",
-    "latest_used_cape_available_at": "2026-05-15",
+    "cape_vintage_path": "/Users/bytedance/.hermes/skills/research/us-etf-quant-system/references/data_cache/cape_vintage.csv",
+    "latest_cape_observation_month": "2026-05-29",
+    "latest_cape_available_at": "2026-06-12",
     "signal_timing": "previous_close_signal",
     "execution_price": "next_open",
     "execution_model": "previous completed close signal with execution at next open",
     "lookahead_warning": null,
-    "cape_available_lag_bdays": 10,
-    "release_tag": "",
-    "release_commit": "",
-    "artifact_build_note": "Set release_tag/release_commit at build time to pin artifact to a specific release. git_commit above reflects the script version at generation time."
+    "cape_available_lag_bdays": 10
   },
   "assumptions": {
     "initial_capital": 100000.0,
@@ -49,43 +44,43 @@
     "strategy": "valuation/risk-aware DCA with scheme-8 panic ladder, cash-reservoir cap, 80/20 core-satellite new-buy weights, monthly trim throttle"
   },
   "strategy": {
-    "final_value": 630424.43,
+    "final_value": 630424.46,
     "total_contributed": 414000.0,
-    "profit": 216424.43,
-    "return_on_contributed": 0.5227643313040451,
-    "xirr": 0.23906364879362296,
-    "max_drawdown": -0.1989477396960826,
-    "unitized_max_drawdown": -0.1989477396960826,
-    "account_value_max_drawdown": -0.16746530394933123,
-    "volatility": 0.16397121199218642,
-    "sharpe": 1.4073777550324504,
-    "sortino": 1.8794263003476783,
+    "profit": 216424.46,
+    "return_on_contributed": 0.5227644065640253,
+    "xirr": 0.2390636785041137,
+    "max_drawdown": -0.19894784141118904,
+    "unitized_max_drawdown": -0.19894784141118904,
+    "account_value_max_drawdown": -0.16746528881682243,
+    "volatility": 0.16397125568693272,
+    "sharpe": 1.407377776951751,
+    "sortino": 1.8794274967175417,
     "win_rate": 0.5832223701731025,
-    "avg_cash_pct": 0.05006801263313618,
-    "ending_cash_pct": 0.14579448099179296,
-    "ending_spy_weight": 0.4052908436354926,
-    "ending_qqq_weight": 0.4489146753727144,
+    "avg_cash_pct": 0.05006800937495081,
+    "ending_cash_pct": 0.14579447396439996,
+    "ending_spy_weight": 0.40529086024532507,
+    "ending_qqq_weight": 0.448914665790275,
     "trade_count": 160
   },
   "benchmark": {
-    "final_value": 661267.0,
+    "final_value": 661267.03,
     "total_contributed": 414000.0,
-    "profit": 247267.0,
-    "return_on_contributed": 0.5972632763402166,
-    "xirr": 0.2679671956987326,
-    "max_drawdown": -0.20827487215881357,
-    "unitized_max_drawdown": -0.20827487215881357,
-    "account_value_max_drawdown": -0.17696333692977428,
-    "volatility": 0.17230737198453014,
-    "sharpe": 1.447969197656378,
-    "sortino": 1.9490923773505613,
+    "profit": 247267.03,
+    "return_on_contributed": 0.5972633657069755,
+    "xirr": 0.26796722977826615,
+    "max_drawdown": -0.20827496288083858,
+    "unitized_max_drawdown": -0.20827496288083858,
+    "account_value_max_drawdown": -0.176963303211371,
+    "volatility": 0.17230741087590978,
+    "sharpe": 1.4479692887985627,
+    "sortino": 1.9490935362654727,
     "win_rate": 0.5832223701731025
   },
   "relative": {
-    "final_value_diff": -30842.56,
-    "xirr_diff": -0.028903546905109656,
-    "max_drawdown_diff": 0.00932713246273098,
-    "account_value_max_drawdown_diff": 0.00949803298044305
+    "final_value_diff": -30842.57,
+    "xirr_diff": -0.02890355127415245,
+    "max_drawdown_diff": 0.009327121469649535,
+    "account_value_max_drawdown_diff": 0.00949801439454856
   },
   "regime_distribution": {
     "elevated": 0.3604,
@@ -110,15 +105,15 @@
     "target_qqq_weight": 0.6000000000000001,
     "cape": 41.04,
     "vix": 15.74,
-    "rsi14": 73.27504852700517,
-    "cash_pct": 0.14579448099179296,
+    "rsi14": 73.275048526934,
+    "cash_pct": 0.14579447396439996,
     "panic_tier": 0,
     "satellite_signal": "qqq_strong_satellite_to_qqq",
     "core_spy_weight": 0.4,
     "core_qqq_weight": 0.4,
     "satellite_spy_weight": 0.0,
     "satellite_qqq_weight": 0.2,
-    "decision_cash_reservoir_pct": 0.14618259638259992,
+    "decision_cash_reservoir_pct": 0.14618258933739445,
     "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=73.3; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
   },
   "recent_trades": [
@@ -140,7 +135,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11406449069789805,
+      "cash_reservoir_pct": 0.1140644836161779,
       "reason": "CAPE=40.0:very_expensive; neutral_satellite"
     },
     {
@@ -161,7 +156,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11244553720107868,
+      "cash_reservoir_pct": 0.11244553025480418,
       "reason": "CAPE=40.0:very_expensive; neutral_satellite"
     },
     {
@@ -182,7 +177,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11597992804303524,
+      "cash_reservoir_pct": 0.11597992088215052,
       "reason": "CAPE=40.0:very_expensive; neutral_satellite"
     },
     {
@@ -203,7 +198,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11542703805077431,
+      "cash_reservoir_pct": 0.11542703095349517,
       "reason": "CAPE=40.0:very_expensive; neutral_satellite"
     },
     {
@@ -224,7 +219,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.1169844121289894,
+      "cash_reservoir_pct": 0.11698440496963046,
       "reason": "CAPE=39.5:very_expensive; neutral_satellite"
     },
     {
@@ -245,7 +240,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11602957987547281,
+      "cash_reservoir_pct": 0.11602957280724567,
       "reason": "CAPE=39.5:very_expensive; neutral_satellite"
     },
     {
@@ -266,7 +261,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11762077715576442,
+      "cash_reservoir_pct": 0.11762077003379473,
       "reason": "CAPE=39.5:very_expensive; neutral_satellite"
     },
     {
@@ -287,7 +282,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.1190252996032889,
+      "cash_reservoir_pct": 0.11902529244837577,
       "reason": "CAPE=39.5:very_expensive; neutral_satellite"
     },
     {
@@ -308,7 +303,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.12181976938934787,
+      "cash_reservoir_pct": 0.121819762119199,
       "reason": "CAPE=37.7:expensive; neutral_satellite"
     },
     {
@@ -329,7 +324,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.2,
       "satellite_qqq_weight": 0.0,
-      "cash_reservoir_pct": 0.12313188509808543,
+      "cash_reservoir_pct": 0.12313187777774452,
       "reason": "CAPE=37.7:expensive; below_sma200_cap; risk_off_satellite_to_spy"
     },
     {
@@ -363,7 +358,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.2,
       "satellite_qqq_weight": 0.0,
-      "cash_reservoir_pct": 0.17014225456838739,
+      "cash_reservoir_pct": 0.17014224618514742,
       "reason": "CAPE=37.7:expensive; below_sma200_cap; qqq_weak_satellite_to_spy"
     },
     {
@@ -384,7 +379,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.16663190848044976,
+      "cash_reservoir_pct": 0.16663190026504868,
       "reason": "CAPE=37.7:expensive; neutral_satellite"
     },
     {
@@ -405,7 +400,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.16109049326270036,
+      "cash_reservoir_pct": 0.16109048532730152,
       "reason": "CAPE=38.9:very_expensive; trend_confirmed_min_0_75x; neutral_satellite"
     },
     {
@@ -426,7 +421,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.1584798455178338,
+      "cash_reservoir_pct": 0.15847983773524066,
       "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=70.7; trend_confirmed_min_0_75x; neutral_satellite"
     },
     {
@@ -447,7 +442,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.15809427031900744,
+      "cash_reservoir_pct": 0.15809426259497347,
       "reason": "CAPE=38.9:very_expensive; trend_confirmed_min_0_75x; neutral_satellite"
     },
     {
@@ -468,7 +463,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.05,
       "satellite_qqq_weight": 0.15,
-      "cash_reservoir_pct": 0.15303780267105108,
+      "cash_reservoir_pct": 0.15303779521164879,
       "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=75.7; trend_confirmed_min_0_75x; qqq_mild_strength_satellite_qqq_tilt"
     },
     {
@@ -489,7 +484,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.0,
       "satellite_qqq_weight": 0.2,
-      "cash_reservoir_pct": 0.15084919350272052,
+      "cash_reservoir_pct": 0.15084918618303028,
       "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=76.5; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
     },
     {
@@ -510,7 +505,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.0,
       "satellite_qqq_weight": 0.2,
-      "cash_reservoir_pct": 0.15140675258375982,
+      "cash_reservoir_pct": 0.15140674526099387,
       "reason": "CAPE=41.0:very_expensive; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
     },
     {
@@ -531,7 +526,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.0,
       "satellite_qqq_weight": 0.2,
-      "cash_reservoir_pct": 0.14946046583987171,
+      "cash_reservoir_pct": 0.14946045863546115,
       "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=71.2; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
     }
   ]

@@ -1,0 +1,19 @@
+{
+  "strategy_version": "1.3.0-rc",
+  "generated_at": "2026-06-01T09:04:03",
+  "git_commit": "da4cdd5be2431e13766f6db1efe9cc6ea805bbba",
+  "git_dirty": true,
+  "script_sha256": "739010b93e4fd828717bc88a8d8af4aae0daaf0de78a1c176e10dda49a58af82",
+  "data_snapshot_sha256": "a427a1e54a93afa1e075ae8fefc86317f6d3cbb153d6aecd792781a17c586e3c",
+  "price_source": "yahoo_chart_adjusted",
+  "actual_price_source_spy": null,
+  "actual_price_source_qqq": null,
+  "adjusted_for_dividends": true,
+  "price_return_only": false,
+  "cape_source": "vintage_file:cape_vintage.csv",
+  "cape_available_lag_bdays": 10,
+  "signal_timing": "previous_close_signal",
+  "execution_price": "next_open",
+  "start": "2023-05-31",
+  "end": "2026-05-29"
+}

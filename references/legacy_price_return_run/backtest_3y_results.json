@@ -1,11 +1,11 @@
 {
   "meta": {
-    "strategy_version": "1.3.0-total-return",
-    "generated_at": "2026-06-01T10:26:56",
-    "git_commit": "c59a2d124be212bdb850f71299bb952995cd23a4",
+    "strategy_version": "1.2.0-system-hardening",
+    "generated_at": "2026-05-31T13:16:04",
+    "git_commit": "da4cdd5be2431e13766f6db1efe9cc6ea805bbba",
     "git_dirty": true,
-    "script_sha256": "0c4771311a14012a7c0cc6b8e532f1c79b6b17dae7f118c3a1eea1fc3824d34f",
-    "data_snapshot_sha256": "80a93cfae65e06dc7852ba348da1dca6b18b8a8214b1da5324ecde4d7d828d2c",
+    "script_sha256": "40673c0d8ea4bc1f3db3141786c7185b109370c2c6b41cff2a7cff2e0094ba40",
+    "data_snapshot_sha256": "bf56c4c6f06634b52a504830cc340ff927c1f806df1fd1daa46197751ce3f320",
     "data_sources": {
       "SPY_QQQ": "Adjusted OHLC when an adjusted provider is selected; Nasdaq fallback is price-return and excludes dividends",
       "VIX": "Cboe VIX_History.csv",
@@ -16,25 +16,17 @@
     "start": "2023-05-31",
     "end": "2026-05-29",
     "trading_days": 752,
-    "price_source": "yahoo_chart_adjusted",
-    "actual_price_source_spy": "yahoo_chart_adjusted",
-    "actual_price_source_qqq": "yahoo_chart_adjusted",
-    "adjusted_for_dividends": true,
-    "price_return_only": false,
-    "cape_source": "vintage_file:cape_vintage.csv",
-    "cape_vintage_path": "/Users/bytedance/.hermes/skills/research/us-etf-quant-system/references/cape_vintage.csv",
-    "latest_vintage_file_observation_month": "2026-05-29",
-    "latest_vintage_file_available_at": "2026-06-12",
-    "latest_used_cape_observation_month": "2026-05-01",
-    "latest_used_cape_available_at": "2026-05-15",
+    "price_source": "nasdaq_price_return",
+    "actual_price_source_spy": "nasdaq_price_return",
+    "actual_price_source_qqq": "nasdaq_price_return",
+    "adjusted_for_dividends": false,
+    "price_return_only": true,
+    "cape_source": "yale_shiller_primary_multpl_recent_fallback",
     "signal_timing": "previous_close_signal",
     "execution_price": "next_open",
     "execution_model": "previous completed close signal with execution at next open",
     "lookahead_warning": null,
-    "cape_available_lag_bdays": 10,
-    "release_tag": "",
-    "release_commit": "",
-    "artifact_build_note": "Set release_tag/release_commit at build time to pin artifact to a specific release. git_commit above reflects the script version at generation time."
+    "cape_available_lag_bdays": 10
   },
   "assumptions": {
     "initial_capital": 100000.0,
@@ -49,43 +41,43 @@
     "strategy": "valuation/risk-aware DCA with scheme-8 panic ladder, cash-reservoir cap, 80/20 core-satellite new-buy weights, monthly trim throttle"
   },
   "strategy": {
-    "final_value": 630424.43,
+    "final_value": 619624.16,
     "total_contributed": 414000.0,
-    "profit": 216424.43,
-    "return_on_contributed": 0.5227643313040451,
-    "xirr": 0.23906364879362296,
-    "max_drawdown": -0.1989477396960826,
-    "unitized_max_drawdown": -0.1989477396960826,
-    "account_value_max_drawdown": -0.16746530394933123,
-    "volatility": 0.16397121199218642,
-    "sharpe": 1.4073777550324504,
-    "sortino": 1.8794263003476783,
+    "profit": 205624.16,
+    "return_on_contributed": 0.49667672549370523,
+    "xirr": 0.22870026396567522,
+    "max_drawdown": -0.20033650657660074,
+    "unitized_max_drawdown": -0.20033650657660074,
+    "account_value_max_drawdown": -0.16855255425550109,
+    "volatility": 0.16378945554624483,
+    "sharpe": 1.3535180200468382,
+    "sortino": 1.8077463246962182,
     "win_rate": 0.5832223701731025,
-    "avg_cash_pct": 0.05006801263313618,
-    "ending_cash_pct": 0.14579448099179296,
-    "ending_spy_weight": 0.4052908436354926,
-    "ending_qqq_weight": 0.4489146753727144,
+    "avg_cash_pct": 0.05205354944162586,
+    "ending_cash_pct": 0.14847510241240902,
+    "ending_spy_weight": 0.39986061001429407,
+    "ending_qqq_weight": 0.45166428757329696,
     "trade_count": 160
   },
   "benchmark": {
-    "final_value": 661267.0,
+    "final_value": 649631.4,
     "total_contributed": 414000.0,
-    "profit": 247267.0,
-    "return_on_contributed": 0.5972632763402166,
-    "xirr": 0.2679671956987326,
-    "max_drawdown": -0.20827487215881357,
-    "unitized_max_drawdown": -0.20827487215881357,
-    "account_value_max_drawdown": -0.17696333692977428,
-    "volatility": 0.17230737198453014,
-    "sharpe": 1.447969197656378,
-    "sortino": 1.9490923773505613,
-    "win_rate": 0.5832223701731025
+    "profit": 235631.4,
+    "return_on_contributed": 0.5691579778901812,
+    "xirr": 0.257180085211705,
+    "max_drawdown": -0.21014462400587985,
+    "unitized_max_drawdown": -0.21014462400587985,
+    "account_value_max_drawdown": -0.178541127215465,
+    "volatility": 0.17246883762550677,
+    "sharpe": 1.3931873101692804,
+    "sortino": 1.87629182130432,
+    "win_rate": 0.5818908122503329
   },
   "relative": {
-    "final_value_diff": -30842.56,
-    "xirr_diff": -0.028903546905109656,
-    "max_drawdown_diff": 0.00932713246273098,
-    "account_value_max_drawdown_diff": 0.00949803298044305
+    "final_value_diff": -30007.24,
+    "xirr_diff": -0.02847982124602977,
+    "max_drawdown_diff": 0.009808117429279117,
+    "account_value_max_drawdown_diff": 0.009988572959963915
   },
   "regime_distribution": {
     "elevated": 0.3604,
@@ -94,10 +86,10 @@
     "very_expensive": 0.2061
   },
   "multiplier_distribution": {
-    "0.5": 0.0545,
-    "0.75": 0.5399,
+    "0.5": 0.0585,
+    "0.75": 0.5386,
     "1.0": 0.3098,
-    "1.25": 0.0904,
+    "1.25": 0.0878,
     "1.5": 0.0053
   },
   "latest_signal": {
@@ -110,16 +102,16 @@
     "target_qqq_weight": 0.6000000000000001,
     "cape": 41.04,
     "vix": 15.74,
-    "rsi14": 73.27504852700517,
-    "cash_pct": 0.14579448099179296,
+    "rsi14": 73.18227305338215,
+    "cash_pct": 0.14847510241240902,
     "panic_tier": 0,
     "satellite_signal": "qqq_strong_satellite_to_qqq",
     "core_spy_weight": 0.4,
     "core_qqq_weight": 0.4,
     "satellite_spy_weight": 0.0,
     "satellite_qqq_weight": 0.2,
-    "decision_cash_reservoir_pct": 0.14618259638259992,
-    "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=73.3; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
+    "decision_cash_reservoir_pct": 0.14886984352598814,
+    "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=73.2; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
   },
   "recent_trades": [
     {
@@ -128,8 +120,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 687.9711,
-      "qqq_trade_price": 621.5662,
+      "spy_trade_price": 689.85,
+      "qqq_trade_price": 622.35,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -140,7 +132,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11406449069789805,
+      "cash_reservoir_pct": 0.1166580032163631,
       "reason": "CAPE=40.0:very_expensive; neutral_satellite"
     },
     {
@@ -149,8 +141,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 694.4934,
-      "qqq_trade_price": 631.8533,
+      "spy_trade_price": 696.39,
+      "qqq_trade_price": 632.65,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -161,7 +153,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11244553720107868,
+      "cash_reservoir_pct": 0.11498953844107629,
       "reason": "CAPE=40.0:very_expensive; neutral_satellite"
     },
     {
@@ -170,8 +162,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 679.0854,
-      "qqq_trade_price": 599.4542,
+      "spy_trade_price": 680.94,
+      "qqq_trade_price": 600.21,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -182,7 +174,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11597992804303524,
+      "cash_reservoir_pct": 0.1185972717703479,
       "reason": "CAPE=40.0:very_expensive; neutral_satellite"
     },
     {
@@ -191,8 +183,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 692.3492,
-      "qqq_trade_price": 613.9359,
+      "spy_trade_price": 694.24,
+      "qqq_trade_price": 614.71,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -203,7 +195,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11542703805077431,
+      "cash_reservoir_pct": 0.11802019810281898,
       "reason": "CAPE=40.0:very_expensive; neutral_satellite"
     },
     {
@@ -212,8 +204,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 681.9775,
-      "qqq_trade_price": 602.0509,
+      "spy_trade_price": 683.84,
+      "qqq_trade_price": 602.81,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -224,7 +216,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.1169844121289894,
+      "cash_reservoir_pct": 0.11959831568911745,
       "reason": "CAPE=39.5:very_expensive; neutral_satellite"
     },
     {
@@ -233,8 +225,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 691.3918,
-      "qqq_trade_price": 614.8148,
+      "spy_trade_price": 693.28,
+      "qqq_trade_price": 615.59,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -245,7 +237,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11602957987547281,
+      "cash_reservoir_pct": 0.11860981104776594,
       "reason": "CAPE=39.5:very_expensive; neutral_satellite"
     },
     {
@@ -254,8 +246,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 680.2223,
-      "qqq_trade_price": 606.6351,
+      "spy_trade_price": 682.08,
+      "qqq_trade_price": 607.4,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -266,7 +258,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.11762077715576442,
+      "cash_reservoir_pct": 0.12021939106795429,
       "reason": "CAPE=39.5:very_expensive; neutral_satellite"
     },
     {
@@ -275,8 +267,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 669.332,
-      "qqq_trade_price": 602.0009,
+      "spy_trade_price": 671.16,
+      "qqq_trade_price": 602.76,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -287,7 +279,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.1190252996032889,
+      "cash_reservoir_pct": 0.12163541232374175,
       "reason": "CAPE=39.5:very_expensive; neutral_satellite"
     },
     {
@@ -296,8 +288,8 @@
       "action": "DCA_BUY",
       "amount": 1500.0,
       "execution_price_mode": "next_open",
-      "spy_trade_price": 655.1807,
-      "qqq_trade_price": 588.7676,
+      "spy_trade_price": 656.97,
+      "qqq_trade_price": 589.51,
       "multiplier": 0.75,
       "spy_weight": 0.5,
       "qqq_weight": 0.5,
@@ -308,7 +300,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.12181976938934787,
+      "cash_reservoir_pct": 0.12447052572714495,
       "reason": "CAPE=37.7:expensive; neutral_satellite"
     },
     {
@@ -329,21 +321,21 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.2,
       "satellite_qqq_weight": 0.0,
-      "cash_reservoir_pct": 0.12313188509808543,
+      "cash_reservoir_pct": 0.1260125769823806,
       "reason": "CAPE=37.7:expensive; below_sma200_cap; risk_off_satellite_to_spy"
     },
     {
       "date": "2026-03-30",
       "signal_date": "2026-03-27",
       "action": "MONTHLY_TRIM",
-      "proceeds": 23479.68,
+      "proceeds": 23211.57,
       "execution_price_mode": "next_open",
       "spy_trade_price": 640.11,
       "qqq_trade_price": 567.38,
       "trim_spy_frac": 0.0,
       "trim_qqq_frac": 0.1,
       "regime": "expensive",
-      "reason": "CAPE=37.7:expensive; falling_knife_guard; panic_ladder_2:tier1_dip:VIX=31.1,RSI=28.5,DD=-8.6%,tier2_panic:VIX=31.1,RSI=28.5,DD=-8.6%; risk_off_satellite_to_spy; monthly_risk_off_trim"
+      "reason": "CAPE=37.7:expensive; falling_knife_guard; panic_ladder_2:tier1_dip:VIX=31.1,RSI=28.1,DD=-8.8%,tier2_panic:VIX=31.1,RSI=28.1,DD=-8.8%; risk_off_satellite_to_spy; monthly_risk_off_trim"
     },
     {
       "date": "2026-04-02",
@@ -363,7 +355,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.2,
       "satellite_qqq_weight": 0.0,
-      "cash_reservoir_pct": 0.17014225456838739,
+      "cash_reservoir_pct": 0.17332853197415535,
       "reason": "CAPE=37.7:expensive; below_sma200_cap; qqq_weak_satellite_to_spy"
     },
     {
@@ -384,7 +376,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.16663190848044976,
+      "cash_reservoir_pct": 0.1697534558052231,
       "reason": "CAPE=37.7:expensive; neutral_satellite"
     },
     {
@@ -405,7 +397,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.16109049326270036,
+      "cash_reservoir_pct": 0.16410744713842504,
       "reason": "CAPE=38.9:very_expensive; trend_confirmed_min_0_75x; neutral_satellite"
     },
     {
@@ -426,8 +418,8 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.1584798455178338,
-      "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=70.7; trend_confirmed_min_0_75x; neutral_satellite"
+      "cash_reservoir_pct": 0.16143973197379272,
+      "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=70.3; trend_confirmed_min_0_75x; neutral_satellite"
     },
     {
       "date": "2026-04-30",
@@ -447,7 +439,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.1,
       "satellite_qqq_weight": 0.1,
-      "cash_reservoir_pct": 0.15809427031900744,
+      "cash_reservoir_pct": 0.16103249371140405,
       "reason": "CAPE=38.9:very_expensive; trend_confirmed_min_0_75x; neutral_satellite"
     },
     {
@@ -468,8 +460,8 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.05,
       "satellite_qqq_weight": 0.15,
-      "cash_reservoir_pct": 0.15303780267105108,
-      "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=75.7; trend_confirmed_min_0_75x; qqq_mild_strength_satellite_qqq_tilt"
+      "cash_reservoir_pct": 0.15587753484907252,
+      "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=75.4; trend_confirmed_min_0_75x; qqq_mild_strength_satellite_qqq_tilt"
     },
     {
       "date": "2026-05-14",
@@ -489,8 +481,8 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.0,
       "satellite_qqq_weight": 0.2,
-      "cash_reservoir_pct": 0.15084919350272052,
-      "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=76.5; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
+      "cash_reservoir_pct": 0.1536371778647247,
+      "reason": "CAPE=38.9:very_expensive; overbought_expensive_soft_cap:RSI=76.3; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
     },
     {
       "date": "2026-05-21",
@@ -510,7 +502,7 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.0,
       "satellite_qqq_weight": 0.2,
-      "cash_reservoir_pct": 0.15140675258375982,
+      "cash_reservoir_pct": 0.15419518552297298,
       "reason": "CAPE=41.0:very_expensive; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
     },
     {
@@ -531,8 +523,8 @@
       "core_qqq_weight": 0.4,
       "satellite_spy_weight": 0.0,
       "satellite_qqq_weight": 0.2,
-      "cash_reservoir_pct": 0.14946046583987171,
-      "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=71.2; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
+      "cash_reservoir_pct": 0.15220462276525107,
+      "reason": "CAPE=41.0:very_expensive; overbought_expensive_soft_cap:RSI=71.1; trend_confirmed_min_0_75x; qqq_strong_satellite_to_qqq"
     }
   ]
 }

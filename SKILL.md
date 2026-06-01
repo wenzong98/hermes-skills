@@ -30,12 +30,17 @@ The included script and artifacts live in this skill folder:
 - `scripts/current_market_advice.py` — request-time market diagnosis + portfolio-aware DCA/trim recommendation generator.
 - `references/strategy_rules.md` — full reviewed and optimized rulebook.
 - `references/current_advice_logic.md` — request-time advice field definitions and action mapping.
+- `references/signal_timing_contract.md` — no-lookahead signal/execution contract for backtests and request-time advice.
+- `references/strategy_spec_v1.json` — machine-readable contract consumed by the independent verifier.
 - `references/backtest_3y_report.md` — latest 3-year backtest summary.
 - `references/backtest_3y_results.json` — machine-readable metrics.
 - `references/backtest_3y_equity_curve.csv` — daily equity curve.
 - `references/backtest_3y_trades.csv` — simulated DCA/trim actions.
 - `references/joinquant_china_qdii_mapping.md` — how to map SPY/QQQ research into A股场内 QDII / LOF execution, including same-index ETF selection and premium-aware execution notes.
+- `references/github_publishing_workflow.md` — current GitHub repo URL, first-time publishing commands, `gh repo create` pitfalls, and what to exclude from commits.
 - `assets/backtest_3y_equity_curve.png` — equity curve chart.
+
+Independent validation lives outside this skill at `~/.hermes/skills/research/us-etf-quant-system-verifier`. That verifier reads exported JSON/CSV/spec artifacts and must not import the production strategy module.
 
 ## When to Use
 
@@ -60,6 +65,8 @@ python3 scripts/backtest_us_etf.py \
   --end 2026-05-29 \
   --initial-capital 100000 \
   --weekly-budget 2000 \
+  --execution-price next_open \
+  --cape-lag-bdays 10 \
   --output-dir references/latest_run
 ```
 
@@ -158,52 +165,58 @@ For fund execution, treat trims as alerts requiring confirmation unless the user
 
 The script models a fixed weekly capital budget:
 
-1. Initial capital is invested on the first backtest date according to the strategy's target split.
-2. Every week, the weekly budget enters cash on the first trading day on/after Thursday.
-3. Strategy invests `weekly_budget × multiplier`, capped by available cash.
-4. The multiplier includes valuation, trend/VIX caps, Scheme 8 panic ladder, and cash-reservoir floor control.
-5. New buys use the 80/20 core-satellite split; only the satellite sleeve rotates.
-6. Benchmark invests exactly 1x weekly budget into static 50/50 SPY/QQQ.
-7. Metrics use cash-flow-aware daily returns and XIRR because there are repeated contributions.
+1. Initial capital is invested on the first tradable execution row after a valid prior signal exists.
+2. By default, indicators from a completed close are used only from the next trading bar onward; default execution is next open.
+3. Monthly CAPE observations are delayed by 10 business days before they become available to daily signals.
+4. Every week, the weekly budget enters cash on the first trading day on/after Thursday.
+5. Strategy invests `weekly_budget × multiplier`, capped by available cash.
+6. The multiplier includes valuation, trend/VIX caps, Scheme 8 panic ladder, and cash-reservoir floor control.
+7. New buys use the 80/20 core-satellite split; only the satellite sleeve rotates.
+8. Benchmark invests exactly 1x weekly budget into static 50/50 SPY/QQQ.
+9. Metrics use cash-flow-aware daily returns and XIRR because there are repeated contributions.
 
 Primary metrics:
 
 - Final value and profit vs contributed capital.
 - XIRR / money-weighted annualized return.
-- Max drawdown.
-- Volatility, Sharpe, Sortino, win rate.
+- Unitized max drawdown for comparable drawdown; account-value drawdown is still reported as a user-experience metric.
+- Volatility, Sharpe, Sortino, win rate. Sharpe/Sortino use the configured annual risk-free rate.
 - Average and ending cash reservoir.
 
 ## Latest 3-Year Backtest Snapshot
 
-Window: **2023-05-30 → 2026-05-28** using $100,000 initial capital and $2,000 weekly budget.
+Window: **2023-05-31 → 2026-05-29** using $100,000 initial capital, $2,000 weekly budget, previous-close signals, next-open execution, and 10-business-day CAPE availability lag. The packaged run still uses Nasdaq price-return data because Yahoo/Alpha adjusted providers are optional and not active in this run.
 
-- Strategy final value: **$615,985.99**.
-- Benchmark final value: **$647,531.02**.
-- Strategy XIRR: **22.54%**.
-- Benchmark XIRR: **25.55%**.
-- Strategy max drawdown: **-16.48%**.
-- Benchmark max drawdown: **-17.82%**.
-- Strategy average cash: **5.25%**; ending cash: **15.57%**.
-- Latest signal on 2026-05-28: **extreme_valuation**, **0.75x DCA**, new-buy split **SPY 60% / QQQ 40%**.
+- Strategy final value: **$619,624.16**.
+- Benchmark final value: **$649,631.40**.
+- Strategy XIRR: **22.87%**.
+- Benchmark XIRR: **25.72%**.
+- Strategy unitized max drawdown: **-20.03%**; account-value drawdown: **-16.86%**.
+- Benchmark unitized max drawdown: **-21.01%**; account-value drawdown: **-17.85%**.
+- Strategy average cash: **5.21%**; ending cash: **14.85%**.
+- Latest signal from 2026-05-28 for 2026-05-29 execution: **very_expensive**, **0.75x DCA**, new-buy split **SPY 40% / QQQ 60%**.
 
 Interpretation: in a strong high-valuation bull market, the risk-aware strategy trails the 50/50 fully-invested benchmark, but it keeps a cash reservoir and slightly reduces drawdown. This is expected behavior, not a bug. If the user explicitly prioritizes maximum bull-market capture, increase the trend-confirmed minimum from 0.75x to 1.0x.
 
 ## Common Pitfalls
 
 1. **Using simple CAGR with recurring contributions.** Use XIRR or cash-flow-adjusted returns.
-2. **Selling every day while a risk signal persists.** Trims must be throttled by month or regime.
-3. **Treating CAPE as a tactical timing signal.** CAPE is slow-moving; use it as a DCA throttle, not a daily exit trigger.
-4. **Ignoring trend confirmation in expensive markets.** High CAPE can persist for years; trend and VIX prevent premature full pauses.
-5. **Comparing price-return data to total-return expectations.** Nasdaq closes exclude dividends. Comparison is fair within the script because both strategy and benchmark use the same price data, but absolute returns are understated.
-6. **Double-charging ETF expense ratios.** ETF prices already embed fund expenses; only transaction cost is modeled separately.
-7. **Mixing research tickers with execution tickers.** For Chinese users, SPY/QQQ often describe the research layer while actual execution happens via A股场内 QDII / LOF proxies. Separate the “index view” from the “which domestic fund to buy” decision.
-8. **Ignoring QDII premium / quota distortions.** Same-index domestic ETFs can diverge materially because of申购赎回限制、外汇额度、节假日和场内溢价. When advice is meant to be actionable in RMB channels, add an execution layer that checks premium, liquidity, and availability.
+2. **Using same-day close signals and same-day close execution.** This is kept only as `--execution-price same_close` for research comparison and is marked as lookahead.
+3. **Selling every day while a risk signal persists.** Trims must be throttled by month or regime.
+4. **Treating CAPE as a tactical timing signal.** CAPE is slow-moving; use it as a DCA throttle, not a daily exit trigger.
+5. **Ignoring trend confirmation in expensive markets.** High CAPE can persist for years; trend and VIX prevent premature full pauses.
+6. **Comparing price-return data to total-return expectations.** Nasdaq closes exclude dividends. Comparison is fair within the script because both strategy and benchmark use the same price data, but absolute returns are understated.
+7. **Double-charging ETF expense ratios.** ETF prices already embed fund expenses; only transaction cost is modeled separately.
+8. **Mixing research tickers with execution tickers.** For Chinese users, SPY/QQQ often describe the research layer while actual execution happens via A股场内 QDII / LOF proxies. Separate the “index view” from the “which domestic fund to buy” decision.
+9. **Ignoring QDII premium / quota distortions.** Same-index domestic ETFs can diverge materially because of申购赎回限制、外汇额度、节假日和场内溢价. When advice is meant to be actionable in RMB channels, add an execution layer that checks premium, liquidity, and availability.
+10. **Publishing runtime noise to GitHub.** When exporting this skill to the user's `wenzong98/hermes-skills` repository, keep durable skill assets but avoid Python caches and transient cron/current-run state unless the user explicitly asks to archive a snapshot. See `references/github_publishing_workflow.md`.
 
 ## Verification Checklist
 
 - [ ] Run `python3 scripts/backtest_us_etf.py --start <date> --end <date> --output-dir <dir>` successfully.
 - [ ] Confirm output JSON contains `strategy`, `benchmark`, `relative`, and `latest_signal` sections.
+- [ ] Confirm output JSON meta contains `strategy_version`, `git_commit`, `script_sha256`, `data_snapshot_sha256`, `signal_timing`, and `execution_price`.
+- [ ] Confirm default trades have `signal_date < date`; only `--execution-price same_close` may have equal dates and must carry `lookahead_warning`.
 - [ ] Confirm equity curve starts after SMA200 warm-up and uses the latest common SPY/QQQ market date.
 - [ ] Confirm benchmark and strategy receive the same external weekly budget.
 - [ ] Confirm latest signal reason includes CAPE, RSI/VIX overlays, and target SPY/QQQ weights.

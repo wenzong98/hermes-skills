@@ -1,0 +1,61 @@
+{
+  "strategy_id": "us_etf_quant_system",
+  "strategy_version": "1.3.0-total-return",
+  "signal_contract": {
+    "default_signal_timing": "previous_close_signal",
+    "default_execution_price": "next_open",
+    "same_close_allowed_only_for_research": true,
+    "cape_available_lag_bdays": 10
+  },
+  "data_contract": {
+    "price_sources": [
+      "nasdaq_price_return",
+      "yahoo_chart_adjusted",
+      "alpha_vantage_adjusted",
+      "tiingo_adjusted"
+    ],
+    "preferred_price_source": "tiingo_adjusted_or_yahoo_chart_adjusted_or_alpha_vantage_adjusted",
+    "require_adjusted_flag": true,
+    "cache_dir": "references/data_cache",
+    "cape_primary_source": "yale_shiller",
+    "cape_recent_fallback": "multpl",
+    "cape_vintage_file": "references/cape_vintage.csv",
+    "vix_source": "cboe_vix_history"
+  },
+  "valuation_multiplier": [
+    {"lt": 22, "multiplier": 2.0, "regime": "deep_value"},
+    {"gte": 22, "lt": 25, "multiplier": 1.5, "regime": "cheap"},
+    {"gte": 25, "lt": 30, "multiplier": 1.25, "regime": "fair"},
+    {"gte": 30, "lt": 35, "multiplier": 1.0, "regime": "elevated"},
+    {"gte": 35, "lt": 38, "multiplier": 0.75, "regime": "expensive"},
+    {"gte": 38, "lt": 42, "multiplier": 0.75, "regime": "very_expensive"},
+    {"gte": 42, "multiplier": 0.5, "regime": "extreme_valuation"}
+  ],
+  "new_buy_allocation": {
+    "core": {"spy": 0.4, "qqq": 0.4},
+    "satellite_size": 0.2,
+    "satellite_modes": {
+      "spy": {"spy": 0.2, "qqq": 0.0},
+      "qqq": {"spy": 0.0, "qqq": 0.2},
+      "qqq_mild": {"spy": 0.05, "qqq": 0.15},
+      "neutral": {"spy": 0.1, "qqq": 0.1}
+    }
+  },
+  "trim_rules": [
+    {"condition": "cape >= 42 and spy_rsi14 >= 75", "asset": "qqq", "fraction": 0.03, "frequency": "monthly"},
+    {"condition": "cape >= 40 and spy_rsi14 >= 78", "asset": "qqq", "fraction": 0.03, "frequency": "monthly"},
+    {"condition": "not trend_up and vix >= 30", "asset": "qqq", "fraction": 0.10, "frequency": "monthly"}
+  ],
+  "required_output_fields": [
+    "meta.strategy_version",
+    "meta.script_sha256",
+    "meta.data_snapshot_sha256",
+    "meta.signal_timing",
+    "meta.execution_price",
+    "meta.cape_available_lag_bdays",
+    "meta.adjusted_for_dividends",
+    "meta.price_return_only",
+    "strategy.unitized_max_drawdown",
+    "benchmark.unitized_max_drawdown"
+  ]
+}

@@ -1,11 +1,11 @@
 # US ETF Quant System — 3Y Backtest Report
 
 ## Window and assumptions
-- Strategy version: 1.3.0-total-return
+- Strategy version: 1.3.0-rc
 - Window: 2023-05-31 → 2026-05-29 (752 trading days)
 - Signal/execution: previous completed close signal with execution at next open
 - CAPE availability lag: 10 business days
-- Price source: requested yahoo_chart_adjusted / actual SPY yahoo_chart_adjusted / actual QQQ yahoo_chart_adjusted
+- Price source: requested yahoo_chart_adjusted / actual SPY None / actual QQQ None
 - Adjusted for dividends: True; price-return only: False
 - CAPE source: vintage_file:cape_vintage.csv
 - Contribution schedule: first trading day on/after Thursday in each ISO week
@@ -17,11 +17,11 @@
 - Data caveat: if `price_return_only` is true, dividends are still excluded for both strategy and benchmark.
 
 ## Headline results
-- Strategy final value: $630,424.43
-- Benchmark final value: $661,267.00
-- Strategy profit vs contributed capital: $216,424.43 (52.28%)
-- Benchmark profit vs contributed capital: $247,267.00 (59.73%)
-- Relative final value difference: $-30,842.56
+- Strategy final value: $630,424.46
+- Benchmark final value: $661,267.03
+- Strategy profit vs contributed capital: $216,424.46 (52.28%)
+- Benchmark profit vs contributed capital: $247,267.03 (59.73%)
+- Relative final value difference: $-30,842.57
 - Strategy XIRR: 23.91%
 - Benchmark XIRR: 26.80%
 - XIRR difference: -2.89%

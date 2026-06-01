@@ -8,8 +8,11 @@ This reference documents how `scripts/current_market_advice.py` converts the lat
 - VIX daily close from Cboe `VIX_History.csv`.
 - Shiller CAPE monthly value from multpl.com.
 - Optional user portfolio config from `~/.hermes/portfolio_config.json`.
+- Optional trim state from `~/.hermes/us_etf_trim_state.json` to avoid repeating the same QQQ trim advice within one calendar month.
 
 The latest signal uses the latest common trading day available across SPY, QQQ, VIX, and CAPE-derived monthly data. If the user asks during Asian daytime before the current US session closes, the latest market date will normally be the previous US trading day.
+
+The latest completed close is treated as a signal for the next available user action. It is not assumed to be tradable at that same close.
 
 ## Market Diagnosis Fields
 
@@ -59,6 +62,15 @@ Trims are alerts, not automatic orders, and are meant to be at most monthly:
 - CAPE >= 42 and RSI >= 75: QQQ micro-trim 3%.
 - CAPE >= 40 and RSI >= 78: QQQ profit-lock trim 3%.
 - SPY below SMA200 and VIX >= 30: QQQ risk-off trim 10%.
+
+The request-time script separates raw trim detection from active recommendation:
+
+- `trim_state.signal_detected`: the market rule is currently true.
+- `trim_state.already_executed_this_month`: the state file already records a QQQ trim for the same month.
+- `trim_state.recommendation_active`: the rule is true and no same-month trim is recorded.
+- `trim_effective_qqq_pct_now`: the actionable trim after monthly de-duplication.
+
+Use `--record-trim-execution` only after the user confirms that the trim was actually executed; ordinary advice generation does not mutate the state file.
 
 ## Portfolio-Aware Output
 

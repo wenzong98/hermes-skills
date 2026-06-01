@@ -1,0 +1,19 @@
+{
+  "strategy_version": "1.2.0-system-hardening",
+  "generated_at": "2026-05-31T13:16:04",
+  "git_commit": "da4cdd5be2431e13766f6db1efe9cc6ea805bbba",
+  "git_dirty": true,
+  "script_sha256": "40673c0d8ea4bc1f3db3141786c7185b109370c2c6b41cff2a7cff2e0094ba40",
+  "data_snapshot_sha256": "bf56c4c6f06634b52a504830cc340ff927c1f806df1fd1daa46197751ce3f320",
+  "price_source": "nasdaq_price_return",
+  "actual_price_source_spy": "nasdaq_price_return",
+  "actual_price_source_qqq": "nasdaq_price_return",
+  "adjusted_for_dividends": false,
+  "price_return_only": true,
+  "cape_source": "yale_shiller_primary_multpl_recent_fallback",
+  "cape_available_lag_bdays": 10,
+  "signal_timing": "previous_close_signal",
+  "execution_price": "next_open",
+  "start": "2023-05-31",
+  "end": "2026-05-29"
+}

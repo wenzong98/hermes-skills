@@ -73,11 +73,74 @@ def trim_signal_for(cape: float, rsi: float, trend_up: bool, vix: float) -> tupl
     return 0.0, "none"
 
 
+def load_trim_state(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def evaluate_trim_state(
+    state: Dict[str, Any],
+    state_file: Path,
+    market_date: str,
+    trim_signal: float,
+    trim_reason: str,
+) -> Dict[str, Any]:
+    month = market_date[:7]
+    last_trim = (state.get("last_trim") or {}).get("qqq")
+    already = bool(last_trim and last_trim.get("month") == month)
+    detected = trim_signal > 0
+    active = detected and not already
+    return {
+        "state_file": str(state_file),
+        "month": month,
+        "signal_detected": detected,
+        "raw_trim_qqq_pct": round(trim_signal * 100, 2),
+        "effective_trim_qqq_pct": round((trim_signal if active else 0.0) * 100, 2),
+        "reason": trim_reason,
+        "already_executed_this_month": already,
+        "recommendation_active": active,
+        "last_trim": last_trim,
+    }
+
+
+def record_trim_execution(state_file: Path, payload: Dict[str, Any]) -> bool:
+    trim_state = payload.get("trim_state") or {}
+    if not trim_state.get("signal_detected"):
+        return False
+    state = load_trim_state(state_file)
+    state.setdefault("last_trim", {})["qqq"] = {
+        "month": trim_state["month"],
+        "date": payload["market"]["latest_market_date"],
+        "reason": trim_state["reason"],
+        "raw_trim_qqq_pct": trim_state["raw_trim_qqq_pct"],
+        "recorded_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+    }
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    state_file.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    return True
+
+
 def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     skill_dir = Path(args.skill_dir).expanduser().resolve()
     bt = load_backtest_module(skill_dir)
     end = args.end or dt.date.today().isoformat()
-    df = bt.prepare_dataset(args.start, end)
+    df = bt.prepare_dataset(
+        args.start,
+        end,
+        cape_lag_bdays=int(args.cape_lag_bdays),
+        price_source=args.price_source,
+        cape_source=args.cape_source,
+        allow_price_return_fallback=bool(args.allow_price_return_fallback),
+        alpha_vantage_api_key=args.alpha_vantage_api_key,
+        tiingo_api_key=getattr(args, "tiingo_api_key", None),
+        cache_dir=getattr(args, "cache_dir", None),
+        require_adjusted=getattr(args, "require_adjusted", False),
+        cape_vintage_path=getattr(args, "cape_vintage_path", None),
+    )
     if df.empty:
         raise RuntimeError("No market data available after warmup")
     row = df.iloc[-1]
@@ -94,7 +157,7 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     if args.portfolio_config:
         cfg_path = Path(args.portfolio_config).expanduser()
         if cfg_path.exists():
-            cfg = json.loads(cfg_path.read_text())
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
 
     weekly_for_model = float(args.weekly_budget or (cfg or {}).get("plan", {}).get("amount", 2000.0))
     model_cash_pct: Optional[float] = None
@@ -138,6 +201,15 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     trim_signal, trim_reason = trim_signal_for(
         market["cape"], market["spy_rsi14"], market["trend_up"], market["vix"]
     )
+    trim_state_file = Path(args.trim_state_file).expanduser()
+    trim_state = evaluate_trim_state(
+        load_trim_state(trim_state_file),
+        trim_state_file,
+        market["latest_market_date"],
+        trim_signal,
+        trim_reason,
+    )
+    effective_trim_signal = trim_signal if trim_state["recommendation_active"] else 0.0
 
     recent_signals = []
     for hist_date, hist_row in df.tail(max(1, int(args.recent_days))).iterrows():
@@ -182,7 +254,7 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
         after_spy = spy_value + buy_spy
         after_qqq = qqq_value + buy_qqq
         diagnostic_shift = max(0.0, after_qqq - after_total * float(dec.qqq_weight))
-        qqq_trim_amount = qqq_value * trim_signal
+        qqq_trim_amount = qqq_value * effective_trim_signal
         portfolio = {
             "total_value": round(total, 2),
             "spy_value": round(spy_value, 2),
@@ -193,7 +265,7 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "model_cash_reservoir_pct": round(model_cash_pct * 100, 2) if model_cash_pct is not None else None,
         }
         recommended = {
-            "action": action_label(float(dec.multiplier), trim_signal),
+            "action": action_label(float(dec.multiplier), effective_trim_signal),
             "weekly_budget_base": weekly,
             "dca_multiplier": float(dec.multiplier),
             "total_buy": round(buy_amount, 2),
@@ -210,21 +282,66 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "model_cash_reservoir_pct": round(model_cash_pct * 100, 2) if model_cash_pct is not None else None,
             "after_buy_spy_weight_pct": round(after_spy / after_total * 100, 2),
             "after_buy_qqq_weight_pct": round(after_qqq / after_total * 100, 2),
-            "trim_signal_qqq_pct": round(trim_signal * 100, 2),
+            "trim_signal_qqq_pct": round(effective_trim_signal * 100, 2),
+            "trim_signal_qqq_pct_raw": round(trim_signal * 100, 2),
             "trim_signal_qqq_amount": round(qqq_trim_amount, 2),
             "trim_reason": trim_reason,
+            "trim_already_executed_this_month": trim_state["already_executed_this_month"],
+            "trim_recommendation_active": trim_state["recommendation_active"],
             "diagnostic_shift_qqq_to_spy_to_match_new_buy_target": round(diagnostic_shift, 2),
         }
+
+    price_source_label = str(df.attrs.get("price_source", args.price_source))
+    cape_source_label = str(df.attrs.get("cape_source", args.cape_source))
+    spy_actual = str(df.attrs.get("actual_price_source_spy", price_source_label))
+    qqq_actual = str(df.attrs.get("actual_price_source_qqq", price_source_label))
+    adj = df.attrs.get("adjusted_for_dividends", False)
+
+    if price_source_label == "yahoo_chart_adjusted":
+        spyy_desc = "Yahoo Finance chart API; adjClose dividend-adjustment factor applied to OHLCV"
+    elif price_source_label == "tiingo_adjusted":
+        spyy_desc = "Tiingo API; adjOpen/adjHigh/adjLow/adjClose/adjVolume with dividend adjustment"
+    elif price_source_label == "alpha_vantage_adjusted":
+        spyy_desc = "Alpha Vantage TIME_SERIES_DAILY_ADJUSTED; split and dividend adjusted"
+    elif price_source_label == "nasdaq_price_return":
+        spyy_desc = "Nasdaq public historical quote API; dividends excluded (price-return only)"
+    else:
+        spyy_desc = f"{price_source_label}"
+
+    if "vintage" in cape_source_label.lower():
+        vintage_name = Path(str(df.attrs.get("cape_vintage_path", ""))).name
+        cape_desc = f"CAPE vintage file with available_at constraint: {vintage_name}"
+    elif "yale" in cape_source_label.lower() or "shiller" in cape_source_label.lower():
+        cape_desc = "Yale Shiller ie_data monthly CAPE with BDay publication lag"
+    elif "multpl" in cape_source_label.lower():
+        cape_desc = "multpl.com Shiller PE monthly table with BDay publication lag"
+    else:
+        cape_desc = f"{cape_source_label} CAPE"
+
+    vintage_path_val = df.attrs.get("cape_vintage_path", "")
+    used_obs = df.attrs.get("latest_used_cape_observation_month", "")
+    used_avail = df.attrs.get("latest_used_cape_available_at", "")
 
     return {
         "meta": {
             "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
             "skill_dir": str(skill_dir),
             "data_sources": {
-                "SPY_QQQ": "Nasdaq public historical quote API; dividends excluded",
+                "SPY_QQQ": spyy_desc,
                 "VIX": "Cboe VIX_History.csv",
-                "CAPE": "multpl.com Shiller PE monthly table",
+                "CAPE": cape_desc,
             },
+            "signal_timing": "latest completed close signal for next available execution",
+            "cape_available_lag_bdays": int(args.cape_lag_bdays),
+            "price_source": price_source_label,
+            "actual_price_source_spy": spy_actual,
+            "actual_price_source_qqq": qqq_actual,
+            "cape_source": cape_source_label,
+            "cape_vintage_path": vintage_path_val,
+            "latest_used_cape_observation_month": used_obs,
+            "latest_used_cape_available_at": used_avail,
+            "adjusted_for_dividends": bool(adj),
+            "price_return_only": bool(df.attrs.get("price_return_only")),
         },
         "market": market,
         "diagnosis": {
@@ -246,9 +363,13 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "trim_spy_pct": round(float(dec.trim_spy_frac) * 100, 2),
             "trim_qqq_pct_rule": round(float(dec.trim_qqq_frac) * 100, 2),
             "trim_signal_qqq_pct_now": round(trim_signal * 100, 2),
+            "trim_effective_qqq_pct_now": round(effective_trim_signal * 100, 2),
             "trim_reason_now": trim_reason,
-            "action_label": action_label(float(dec.multiplier), trim_signal),
+            "trim_already_executed_this_month": trim_state["already_executed_this_month"],
+            "trim_recommendation_active": trim_state["recommendation_active"],
+            "action_label": action_label(float(dec.multiplier), effective_trim_signal),
         },
+        "trim_state": trim_state,
         "portfolio": portfolio,
         "recommended": recommended,
         "recent_signals": recent_signals,
@@ -280,12 +401,16 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
 
 def write_report(payload: Dict[str, Any], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "current_market_advice.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2))
+    (output_dir / "current_market_advice.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     m = payload["market"]
     d = payload["decision"]
+    trim_state = payload.get("trim_state") or {}
     recent = payload.get("recent_signals") or []
     p = payload.get("portfolio")
     r = payload.get("recommended")
+    trim_status = "本月已记录，不重复建议" if trim_state.get("already_executed_this_month") else (
+        "本次有效" if trim_state.get("recommendation_active") else "未触发"
+    )
     lines = [
         "# 美股 ETF 请求时刻市场诊断与操作建议",
         "",
@@ -307,7 +432,7 @@ def write_report(payload: Dict[str, Any], output_dir: Path) -> None:
         f"- 定投倍率：{d['dca_multiplier']}x；恐慌层级：{d['panic_tier']}；模型现金池：{d['model_cash_reservoir_pct']}%",
         f"- 新买入分配：SPY/标普 {d['new_buy_spy_weight_pct']}%，QQQ/纳指 {d['new_buy_qqq_weight_pct']}%",
         f"- 11B拆分：核心仓 标普/纳指 {d['core_spy_weight_pct']}%/{d['core_qqq_weight_pct']}%；卫星仓 标普/纳指 {d['satellite_spy_weight_pct']}%/{d['satellite_qqq_weight_pct']}%；信号：{d['satellite_signal']}",
-        f"- 当前减仓信号：QQQ {d['trim_signal_qqq_pct_now']}%；原因：{d['trim_reason_now']}",
+        f"- 当前减仓信号：规则触发 QQQ {d['trim_signal_qqq_pct_now']}%；本次有效 QQQ {d['trim_effective_qqq_pct_now']}%；状态：{trim_status}；原因：{d['trim_reason_now']}",
         f"- 规则依据：{payload['diagnosis']['rule_reason']}",
     ]
     if recent:
@@ -334,6 +459,7 @@ def write_report(payload: Dict[str, Any], output_dir: Path) -> None:
             f"- 本期标普/SPY类买入：{r['spy_buy']}；纳指/QQQ类买入：{r['qqq_buy']}",
             f"- 11B拆分：核心 标普/纳指 {r['core_spy_weight_pct']}%/{r['core_qqq_weight_pct']}%；卫星 标普/纳指 {r['satellite_spy_weight_pct']}%/{r['satellite_qqq_weight_pct']}%；信号 {r['satellite_signal']}；恐慌层级 {r['panic_tier']}",
             f"- 买入后预估权重：标普 {r['after_buy_spy_weight_pct']}%，纳指 {r['after_buy_qqq_weight_pct']}%",
+            f"- 本月减仓去重：已执行={r['trim_already_executed_this_month']}；本次有效={r['trim_recommendation_active']}；有效QQQ减仓金额={r['trim_signal_qqq_amount']}",
             f"- 若强行对齐本期新买入风险目标，诊断性换仓额约：{r['diagnostic_shift_qqq_to_spy_to_match_new_buy_target']} 从纳指转标普；默认不建议一次性完成，只作为风险暴露参考。",
         ]
     lines += [
@@ -344,7 +470,7 @@ def write_report(payload: Dict[str, Any], output_dir: Path) -> None:
         "- 11B分配：80%核心仓固定标普/纳指40/40，20%卫星仓按QQQ/SPY相对强弱、QQQ趋势、VIX和恐慌层级切换。",
         "- 减仓：CAPE>=42 且 RSI>=75 时月度微减 QQQ 3%；跌破SMA200且VIX>=30时减 QQQ 10%。",
     ]
-    (output_dir / "current_market_advice.md").write_text("\n".join(lines) + "\n")
+    (output_dir / "current_market_advice.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def main() -> None:
@@ -357,12 +483,26 @@ def main() -> None:
     parser.add_argument("--weekly-budget", type=float, default=None)
     parser.add_argument("--initial-capital", type=float, default=100_000.0, help="Initial capital for model cash-reservoir simulation")
     parser.add_argument("--transaction-cost", type=float, default=0.0015)
+    parser.add_argument("--cape-lag-bdays", type=int, default=10, help="Business-day availability lag applied to monthly CAPE observations")
+    parser.add_argument("--price-source", choices=sorted(load_backtest_module(default_skill_dir).PRICE_SOURCES), default="nasdaq_price_return")
+    parser.add_argument("--cape-source", choices=["yale_shiller", "multpl"], default="yale_shiller")
+    parser.add_argument("--allow-price-return-fallback", action="store_true")
+    parser.add_argument("--require-adjusted", action="store_true", help="Fail if actual data source is price-return-only")
+    parser.add_argument("--alpha-vantage-api-key", default=None)
+    parser.add_argument("--tiingo-api-key", default=None)
+    parser.add_argument("--cache-dir", default=None, help="Directory for caching downloaded data")
+    parser.add_argument("--cape-vintage-path", default=None, help="Path to CAPE vintage CSV with available_at constraints")
     parser.add_argument("--no-model-cash-reservoir", dest="model_cash_reservoir", action="store_false", help="Disable simulated cash-reservoir adjustment in request-time advice")
     parser.set_defaults(model_cash_reservoir=True)
+    parser.add_argument("--trim-state-file", default="~/.hermes/us_etf_trim_state.json", help="Persistent state used to avoid repeated monthly trim advice")
+    parser.add_argument("--record-trim-execution", action="store_true", help="Record the current QQQ trim signal as executed in the trim state file")
     parser.add_argument("--recent-days", type=int, default=3, help="Number of recent trading days to include in the advice report")
     parser.add_argument("--output-dir", default=str(default_skill_dir / "references" / "current_run"))
     args = parser.parse_args()
     payload = build_payload(args)
+    recorded_trim_execution = False
+    if args.record_trim_execution:
+        recorded_trim_execution = record_trim_execution(Path(args.trim_state_file).expanduser(), payload)
     write_report(payload, Path(args.output_dir).expanduser())
     print(json.dumps({
         "generated_at": payload["meta"]["generated_at"],
@@ -375,6 +515,8 @@ def main() -> None:
         "panic_tier": payload["decision"]["panic_tier"],
         "satellite_signal": payload["decision"]["satellite_signal"],
         "model_cash_reservoir_pct": payload["decision"]["model_cash_reservoir_pct"],
+        "trim_state": payload.get("trim_state"),
+        "recorded_trim_execution": recorded_trim_execution,
         "recommended": payload.get("recommended"),
         "output_dir": str(Path(args.output_dir).expanduser()),
     }, ensure_ascii=False, indent=2))
