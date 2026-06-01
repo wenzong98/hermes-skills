@@ -1,0 +1,37 @@
+name: us-etf-quant-system-strict-replay
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  strict-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production skill
+        uses: actions/checkout@v4
+        with:
+          path: us-etf-quant-system
+      - name: Checkout verifier
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.VERIFIER_REPO || 'bytedance/us-etf-quant-system-verifier' }}
+          path: us-etf-quant-system-verifier
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install verifier dependencies
+        working-directory: us-etf-quant-system-verifier
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+          python -m pip install pandas numpy
+      - name: Run strict replay
+        working-directory: us-etf-quant-system-verifier
+        run: |
+          set -e
+          python verifier/replay_strategy.py \
+            --main-repo ../us-etf-quant-system \
+            --strict-total-return \
+            --strict-cape-vintage

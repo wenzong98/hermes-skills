@@ -269,7 +269,7 @@ def fetch_cboe_vix(start: str, end: str) -> pd.DataFrame:
 
 
 def fetch_yale_shiller_cape(start: str, end: str) -> pd.DataFrame:
-    url = "http://www.econ.yale.edu/~shiller/data/ie_data.xls"
+    url = "https://www.econ.yale.edu/~shiller/data/ie_data.xls"
     r = requests.get(url, headers={"User-Agent": NASDAQ_HEADERS["User-Agent"]}, timeout=60)
     r.raise_for_status()
     raw = pd.read_excel(io.BytesIO(r.content), sheet_name="Data", skiprows=7)

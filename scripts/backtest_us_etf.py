@@ -49,7 +49,7 @@ try:
 except Exception:  # pragma: no cover - chart is optional
     plt = None
 
-STRATEGY_VERSION = "1.3.0-total-return"
+STRATEGY_VERSION = "1.3.0-total-return-pit"
 EXECUTION_PRICE_MODES = {"next_open", "next_close", "same_close"}
 PRICE_SOURCES = _DS_PRICE_SOURCES
 WEEKDAY_NAMES = {
@@ -121,6 +121,13 @@ def prepare_dataset(
                 f"QQQ source: {qqq_raw.attrs.get('price_source')}. "
                 f"Use --price-source tiingo_adjusted|yahoo_chart_adjusted|alpha_vantage_adjusted "
                 f"and do not use --allow-price-return-fallback."
+            )
+        if not cape_vintage_path:
+            raise RuntimeError(
+                "--require-adjusted is set but no --cape-vintage-path was provided. "
+                "The 10-business-day multpl/yale fallback is research-only; production runs "
+                "that demand dividend-adjusted prices must also use a PIT-correct CAPE vintage file. "
+                "Run scripts/update_cape_snapshot.py first and pass --cape-vintage-path <path>."
             )
     spy = spy_raw.add_prefix("spy_")
     qqq = qqq_raw.add_prefix("qqq_")

@@ -9,3 +9,6 @@ references/data_cache/
 *.egg-info/
 dist/
 build/
+
+# Persistent per-skill run state (not source-controlled)
+references/cron_run/.trim_state.json

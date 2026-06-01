@@ -226,3 +226,65 @@ def test_data_sources_raw_bytes_saved_in_write_cache() -> None:
         assert manifest["provider"] == "test_source"
         assert manifest["adjusted_for_dividends"] is True
         assert manifest["price_return_only"] is False
+
+
+def test_require_adjusted_requires_cape_vintage_path() -> None:
+    """When --require-adjusted is set, --cape-vintage-path must also be provided.
+
+    The 10-business-day multpl/yale fallback is research-only; production runs
+    that demand dividend-adjusted prices must also use a PIT-correct CAPE
+    vintage file. This guards against silently falling back to the lagged
+    multpl table in production.
+    """
+    import sys as _sys
+    _scripts = str(Path(__file__).resolve().parent.parent / "scripts")
+    if _scripts not in _sys.path:
+        _sys.path.insert(0, _scripts)
+    from backtest_us_etf import prepare_dataset
+
+    with patch("backtest_us_etf.fetch_etf_ohlcv") as mock_etf, \
+         patch("backtest_us_etf.fetch_cboe_vix") as mock_vix, \
+         patch("backtest_us_etf.fetch_shiller_cape") as mock_cape:
+        dates = pd.bdate_range("2023-05-29", "2026-05-29")
+        n = len(dates)
+        spy_df = pd.DataFrame({
+            "open": np.random.uniform(400, 480, n),
+            "high": np.random.uniform(420, 500, n),
+            "low": np.random.uniform(390, 450, n),
+            "close": np.random.uniform(405, 490, n),
+            "volume": np.random.uniform(50e6, 120e6, n).astype(float),
+        }, index=dates)
+        spy_df.attrs["price_source"] = "yahoo_chart_adjusted"
+        spy_df.attrs["price_return_only"] = False
+        spy_df.attrs["adjusted_for_dividends"] = True
+
+        qqq_df = pd.DataFrame({
+            "open": np.random.uniform(180, 220, n),
+            "high": np.random.uniform(190, 230, n),
+            "low": np.random.uniform(175, 210, n),
+            "close": np.random.uniform(185, 225, n),
+            "volume": np.random.uniform(30e6, 80e6, n).astype(float),
+        }, index=dates)
+        qqq_df.attrs["price_source"] = "yahoo_chart_adjusted"
+        qqq_df.attrs["price_return_only"] = False
+        qqq_df.attrs["adjusted_for_dividends"] = True
+
+        vix_df = pd.DataFrame({"vix": np.random.uniform(12, 35, n).astype(float)}, index=dates)
+        cape_df = pd.DataFrame({"cape": np.full(n, 32.0).astype(float)}, index=dates)
+        cape_df.attrs["cape_source"] = "yale_shiller"
+
+        def side_effect_etf(symbol, *args, **kwargs):
+            return spy_df if symbol == "SPY" else qqq_df
+
+        mock_etf.side_effect = side_effect_etf
+        mock_vix.return_value = vix_df
+        mock_cape.return_value = cape_df
+
+        with pytest.raises(RuntimeError, match="--cape-vintage-path"):
+            prepare_dataset(
+                "2023-05-29", "2026-05-29",
+                warmup_days=60,
+                price_source="yahoo_chart_adjusted",
+                require_adjusted=True,
+                cape_vintage_path=None,
+            )

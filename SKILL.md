@@ -96,6 +96,7 @@ Outputs:
 - `references/current_run/current_market_advice.json`
 - `references/cron_push_dedup_logic.md` — 工作日 9:00 推送、与前次建议去重、以及投递语义/手动发送坑点说明。
 - `references/push_notification_workflow.md` — 中文推送模板的推荐结构、6 字段去重规则，以及为何用 Python 而不是 bash 处理含中文 JSON/Markdown。
+- `references/push_content_improvements.md` — 推送内容增强建议：QDII 溢价执行层、自动定投 vs 模型建议差额、本次触发原因、阈值预警和周报/月报分层。
 
 ## Portfolio Config Conventions
 
@@ -221,3 +222,50 @@ Interpretation: in a strong high-valuation bull market, the risk-aware strategy 
 - [ ] Confirm benchmark and strategy receive the same external weekly budget.
 - [ ] Confirm latest signal reason includes CAPE, RSI/VIX overlays, and target SPY/QQQ weights.
 - [ ] If changing rules, rerun the 3-year backtest and update `references/backtest_3y_report.md` and `references/backtest_3y_results.json`.
+
+## Operational Cadence
+
+This section captures the minimum recurring-maintenance rituals that keep the strategy PIT-correct, the verifier green, and the production paths free of stale data.
+
+### CAPE Vintage Refresh
+
+The CAPE vintage file (`references/cape_vintage.csv`) is the source of truth for `--cape-vintage-path` users and for the `assert_latest_cape_pit` runtime check in `current_market_advice.py`. It must be refreshed at least monthly because:
+
+- Yale Shiller's `ie_data.xls` is updated roughly every month-end.
+- multpl.com is more frequent but only used as a research fallback since v1.3.0.
+- Without a fresh refresh, `available_at` lags behind the calendar and the request-time PIT assertion can over-aggressively abort runs that are still PIT-correct.
+
+Refresh command:
+
+```bash
+python3 scripts/update_cape_snapshot.py --output references/data_cache/cape_vintage.csv
+# It is also copied to references/cape_vintage.csv as the canonical delivery path.
+```
+
+Recommended cadence: run on the 5th business day of each month (after Yale's typical publication window). Pair it with a cron entry or scheduled workflow.
+
+### Strict Replay CI
+
+`.github/workflows/strict_replay.yml` checks out both this repository and the verifier at the same SHA and runs:
+
+```bash
+python verifier/replay_strategy.py \
+  --main-repo ../us-etf-quant-system \
+  --strict-total-return \
+  --strict-cape-vintage
+```
+
+A failing run blocks merge. The verifier's `test_verifier_does_not_import_production_strategy_code` enforces that this remains an independent re-implementation, not a wrapper around production code.
+
+### Trim State File Location
+
+The persistent QQQ trim state lives at `references/cron_run/.trim_state.json` (gitignored). A symlink at `~/.hermes/us_etf_trim_state.json` points to the new location for backward compatibility with existing cron entries. To migrate a cron job, prefer the new path; the symlink is only a soft bridge.
+
+### `--require-adjusted` Production Gate
+
+When running with `--require-adjusted` (recommended for any non-research, total-return production run), the system now refuses to start unless both:
+
+1. The actual SPY/QQQ data source is dividend-adjusted (Tiingo, Yahoo chart, or Alpha Vantage adjusted).
+2. A CAPE vintage path is supplied via `--cape-vintage-path`.
+
+The 10-business-day multpl/yale fallback is research-only and intentionally not allowed in `--require-adjusted` mode, because it lacks the PIT-correct `available_at` enforcement that production runs need.

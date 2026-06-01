@@ -31,7 +31,7 @@ def parse_number(value) -> float:
 
 
 def fetch_yale_shiller_raw() -> pd.DataFrame:
-    url = "http://www.econ.yale.edu/~shiller/data/ie_data.xls"
+    url = "https://www.econ.yale.edu/~shiller/data/ie_data.xls"
     r = requests.get(url, headers=NASDAQ_HEADERS, timeout=60)
     r.raise_for_status()
     raw = pd.read_excel(io.BytesIO(r.content), sheet_name="Data", skiprows=7)
@@ -73,16 +73,41 @@ def fetch_multpl_raw() -> pd.DataFrame:
 def compute_available_at(observation_month: pd.Timestamp, lag_bdays: int = PUBLICATION_LAG_BDAYS) -> pd.Timestamp:
     return observation_month + pd.offsets.BDay(lag_bdays)
 
+def _resolve_available_at(observation_month: pd.Timestamp, downloaded_at: str, lag_bdays: int = PUBLICATION_LAG_BDAYS) -> Optional[str]:
+    """Clamp the PIT available_at to min(lag-based date, downloaded_at).
+
+    The 10-BDay publication lag is a "potentially known" bound from the publisher's
+    perspective; downloaded_at is the bound from our perspective. The earliest
+    date at which the data could have been known is min(lag_date, downloaded_at).
+    This guarantees the resulting row never claims available_at > downloaded_at,
+    which would be a future-dated vintage row.
+
+    Returns None if downloaded_at is unparseable or the clamped value would still
+    be in the future (defensive — should be impossible after min()).
+    """
+    try:
+        downloaded_dt = pd.Timestamp(downloaded_at)
+    except Exception:
+        return None
+    lag_dt = compute_available_at(observation_month, lag_bdays)
+    available_dt = min(lag_dt, downloaded_dt)
+    if available_dt > downloaded_dt:
+        return None
+    return available_dt.strftime("%Y-%m-%d")
+
 
 def build_vintage(yale_df: Optional[pd.DataFrame], multpl_df: Optional[pd.DataFrame]) -> pd.DataFrame:
     records = []
     if yale_df is not None and not yale_df.empty:
         for _, row in yale_df.iterrows():
             obs = pd.Timestamp(row["observation_month"])
+            available_at = _resolve_available_at(obs, row["downloaded_at"])
+            if available_at is None:
+                continue
             records.append({
                 "observation_month": obs.strftime("%Y-%m-%d"),
                 "published_at": row["downloaded_at"],
-                "available_at": compute_available_at(obs).strftime("%Y-%m-%d"),
+                "available_at": available_at,
                 "cape": float(row["cape"]),
                 "source": row["source"],
                 "source_url": row["source_url"],
@@ -99,10 +124,13 @@ def build_vintage(yale_df: Optional[pd.DataFrame], multpl_df: Optional[pd.DataFr
             obs = pd.Timestamp(row["observation_month"])
             if yale_max is not None and obs <= yale_max:
                 continue
+            available_at = _resolve_available_at(obs, row["downloaded_at"])
+            if available_at is None:
+                continue
             records.append({
                 "observation_month": obs.strftime("%Y-%m-%d"),
                 "published_at": row["downloaded_at"],
-                "available_at": compute_available_at(obs).strftime("%Y-%m-%d"),
+                "available_at": available_at,
                 "cape": float(row["cape"]),
                 "source": row["source"],
                 "source_url": row["source_url"],

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+
+import pandas as pd
 import importlib.util
 import json
 import sys
@@ -29,6 +31,34 @@ def load_backtest_module(skill_dir: Path):
     sys.modules["us_etf_backtest"] = mod
     spec.loader.exec_module(mod)
     return mod
+
+
+def assert_latest_cape_pit(df, latest_market_close) -> None:
+    """Defensive PIT check: refuse to emit advice if the chosen CAPE was not
+    actually available at the latest market close.
+
+    The CAPE vintage file is built such that no row claims available_at after
+    downloaded_at (see scripts/update_cape_snapshot.py: _resolve_available_at),
+    but as a belt-and-braces guard we re-verify the invariant at request time.
+    If the chosen CAPE observation is in the future relative to the signal date,
+    raise AssertionError so the run aborts with a clear message instead of
+    silently emitting advice based on a value that did not exist.
+    """
+    latest_avail_str = df.attrs.get("latest_used_cape_available_at", "")
+    if not latest_avail_str:
+        return
+    try:
+        latest_avail = pd.Timestamp(latest_avail_str)
+    except Exception:
+        return
+    if pd.isna(latest_avail):
+        return
+    if latest_avail > pd.Timestamp(latest_market_close):
+        raise AssertionError(
+            f"CAPE PIT violation: latest_used_cape_available_at ({latest_avail.date()}) > "
+            f"latest_market_close ({pd.Timestamp(latest_market_close).date()}). "
+            f"The CAPE was not actually available at the signal date — refusing to emit advice."
+        )
 
 
 def pct(x: float, digits: int = 2) -> str:
@@ -143,6 +173,7 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     )
     if df.empty:
         raise RuntimeError("No market data available after warmup")
+    assert_latest_cape_pit(df, df.index.max())
     row = df.iloc[-1]
 
     # Compute SPY/QQQ daily returns (current day close vs previous day close)
@@ -494,7 +525,7 @@ def main() -> None:
     parser.add_argument("--cape-vintage-path", default=None, help="Path to CAPE vintage CSV with available_at constraints")
     parser.add_argument("--no-model-cash-reservoir", dest="model_cash_reservoir", action="store_false", help="Disable simulated cash-reservoir adjustment in request-time advice")
     parser.set_defaults(model_cash_reservoir=True)
-    parser.add_argument("--trim-state-file", default="~/.hermes/us_etf_trim_state.json", help="Persistent state used to avoid repeated monthly trim advice")
+    parser.add_argument("--trim-state-file", default=str(default_skill_dir / "references" / "cron_run" / ".trim_state.json"), help="Persistent state used to avoid repeated monthly trim advice. Default lives inside the skill so it travels with the repo; the legacy ~/.hermes/us_etf_trim_state.json path still works as a symlink.")
     parser.add_argument("--record-trim-execution", action="store_true", help="Record the current QQQ trim signal as executed in the trim state file")
     parser.add_argument("--recent-days", type=int, default=3, help="Number of recent trading days to include in the advice report")
     parser.add_argument("--output-dir", default=str(default_skill_dir / "references" / "current_run"))
