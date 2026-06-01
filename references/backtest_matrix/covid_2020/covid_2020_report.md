@@ -1,7 +1,7 @@
 # US ETF Quant System — 3Y Backtest Report
 
 ## Window and assumptions
-- Strategy version: 1.3.0-rc
+- Strategy version: 1.3.0-total-return
 - Window: 2020-02-04 → 2020-06-30 (103 trading days)
 - Signal/execution: previous completed close signal with execution at next open
 - CAPE availability lag: 10 business days
