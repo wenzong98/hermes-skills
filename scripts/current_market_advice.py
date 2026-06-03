@@ -274,8 +274,23 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     recommended: Optional[Dict[str, Any]] = None
     if cfg is not None:
         funds = cfg["holdings"]["funds"]
-        spy_value = sum(float(x["value"]) for x in funds if "标普500" in x["name"] or "S&P" in x["name"].upper())
-        qqq_value = sum(float(x["value"]) for x in funds if "纳斯达克100" in x["name"] or "NASDAQ" in x["name"].upper())
+        # Classify each holding by its explicit `target` field (SPY | QQQ).
+        # `name` is for display only; substring matching ("标普500",
+        # "NASDAQ", etc.) is fragile against QDII/LOF renames and aliases,
+        # so we keep it only as a fallback when `target` is missing.
+        def _classify(fund: Dict[str, Any]) -> str:
+            explicit = (fund.get("target") or "").upper()
+            if explicit in ("SPY", "QQQ"):
+                return explicit
+            name_upper = (fund.get("name") or "").upper()
+            if "标普500" in (fund.get("name") or "") or "S&P" in name_upper:
+                return "SPY"
+            if "纳斯达克100" in (fund.get("name") or "") or "NASDAQ" in name_upper:
+                return "QQQ"
+            return ""
+
+        spy_value = sum(float(x["value"]) for x in funds if _classify(x) == "SPY")
+        qqq_value = sum(float(x["value"]) for x in funds if _classify(x) == "QQQ")
         total = float(cfg["holdings"]["total_value"])
         weekly = weekly_for_model
         buy_amount = weekly * float(dec.multiplier)
