@@ -156,7 +156,14 @@ def merge_vintage(existing: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
         return new
     if new.empty:
         return existing
-    combined = pd.concat([existing, new]).drop_duplicates(
+    # Normalize observation_month dtype so sort_values doesn't crash on
+    # mixed str/Timestamp (existing loaded with parse_dates, new built
+    # as strftime strings). coerce leaves bad rows as NaT and dropna keeps
+    # the rest — better than a hard crash on the monthly snapshot.
+    for df in (existing, new):
+        if "observation_month" in df.columns and df["observation_month"].dtype == object:
+            df["observation_month"] = pd.to_datetime(df["observation_month"], errors="coerce")
+    combined = pd.concat([existing, new]).dropna(subset=["observation_month"]).drop_duplicates(
         subset=["observation_month", "source"], keep="last"
     ).sort_values("observation_month").reset_index(drop=True)
     return combined
@@ -177,6 +184,12 @@ def main() -> None:
     parser.add_argument("--lag-bdays", type=int, default=PUBLICATION_LAG_BDAYS)
     parser.add_argument("--skip-yale", action="store_true")
     parser.add_argument("--skip-multpl", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Fetch + validate the new vintage but do not write to --output or the delivery path. "
+             "Used by cape-monthly-snapshot.sh step 1/3 to abort on PIT regression before committing.",
+    )
     args = parser.parse_args()
 
     output_path = Path(args.output)
@@ -202,11 +215,25 @@ def main() -> None:
     new_vintage = build_vintage(yale_df, multpl_df)
     existing = load_vintage(output_path)
     merged = merge_vintage(existing, new_vintage)
+
+    if args.dry_run:
+        # cape-monthly-snapshot.sh step 1/3: validate, then bail.
+        # We still print what the commit *would* look like so the operator
+        # can grep the latest month / row count from the log.
+        print(f"[dry-run] would write {len(merged)} rows to {output_path}")
+        print(f"[dry-run] latest observation: {merged['observation_month'].iloc[-1]}")
+        print(f"[dry-run] latest available_at: {merged['available_at'].iloc[-1]}")
+        return
+
     merged.to_csv(output_path, index=False)
 
     delivery_path = Path(__file__).resolve().parents[1] / "references" / "cape_vintage.csv"
-    import shutil
-    shutil.copy2(output_path, delivery_path)
+    # When --output already points at the canonical delivery file (the
+    # default, and how cape-monthly-snapshot.sh invokes this script),
+    # the copy2 below would raise SameFileError. Skip it in that case.
+    if output_path.resolve() != delivery_path.resolve():
+        import shutil
+        shutil.copy2(output_path, delivery_path)
     print(f"CAPE vintage written to {output_path}: {len(merged)} rows")
     print(f"Latest observation: {merged['observation_month'].iloc[-1]}")
     print(f"Latest available_at: {merged['available_at'].iloc[-1]}")
