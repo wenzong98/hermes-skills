@@ -35,6 +35,7 @@
 | `com.hermes.usetf-quarterly-backtest` | 1/4/7/10 月 5 日 22:00 | `~/.hermes/scripts/usetf-quarterly-backtest.sh` | `~/.hermes/cron/usetf-quarterly-backtest.log` |
 | `com.hermes.cape-monthly-snapshot` | 每月 5 日 09:00 | `~/.hermes/scripts/cape-monthly-snapshot.sh` | `~/.hermes/cron/cape-monthly-snapshot.log` |
 | `com.hermes.usetf-dashboard-server` | RunAtLoad + KeepAlive | `~/.hermes/scripts/usetf-dashboard-server.sh` | `~/.hermes/cron/usetf-dashboard-server.log` |
+| `com.hermes.usetf-state-rotate` | 周日 03:00 | `~/.hermes/scripts/usetf-state-rotate.sh` | `~/.hermes/cron/usetf-state-rotate.log` |
 
 `usetf-daily-refresh.sh` 内部三步:
 1. `python3 scripts/run_daily_pipeline.py` — 数据 → 建议 → 回测 → dashboard
@@ -45,6 +46,18 @@
 ```bash
 launchctl kickstart -k gui/$(id -u)/com.hermes.usetf-daily-refresh
 launchctl kickstart -k gui/$(id -u)/com.hermes.cape-monthly-snapshot
+launchctl kickstart -k gui/$(id -u)/com.hermes.usetf-state-rotate
+```
+
+**state-rotate 三条策略** (每周日 03:00 自动跑):
+1. `references/llm_usage.jsonl` — logrotate 风格,文件 >500KB 时轮转,保留 live + .1 + .2 + .3
+2. `references/current_run{,/_strict}/` — tar.gz 打包到 `~/.hermes/state/us_etf/history/YYYY-Www.tar.gz`,保留近 4 周
+3. `references/cron_run/.advice_state.json` — 每月 1 号备份到 `~/.hermes/state/us_etf/advice_state/YYYY-MM.json`,保留近 6 月
+
+手动跑 + dry-run 验证:
+```bash
+python3 scripts/state_rotate.py              # 实际跑
+python3 scripts/state_rotate.py --dry-run    # 仅打印不动文件
 ```
 
 **查看状态**:
@@ -130,6 +143,10 @@ ls -la ~/.hermes/cron/output/0796e6f17c67/ | tail -3
 # 7. cape monthly snapshot 上次成功没?
 tail -10 ~/.hermes/cron/cape-monthly-snapshot.log
 # 期望最近一次 "[step 2/3] commit OK" + "[step 3/3] pushing summary"
+
+# 8. state-rotate 跑了没?本周 archive 在不在?
+ls -la ~/.hermes/state/us_etf/history/ | tail -3
+# 期望有本周 ISO 周编号的 .tar.gz (例如 2026-W24.tar.gz)
 ```
 
 ### 故障排查固定顺序
