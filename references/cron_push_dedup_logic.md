@@ -1,70 +1,28 @@
-# 定时推送去重逻辑（工作日 9:00）
-
-## 目标
-将美股 ETF 建议改为 **每个工作日早上 9:00** 运行，但不是每次都推送；只有当“今日建议”相对前一次已记录建议发生变化时才推送。
+# 定时推送逻辑（周一至周六 9:00）
 
 ## 当前实现
-- cron schedule: `0 9 * * 1-5`
-- script: `~/.hermes/scripts/us_etf_current_advice_push.sh`
+- cron schedule: `0 9 * * 1-6`
+- 周六任务用于处理中国时间周六早晨才完成的美股周五收盘数据。
+- script: `~/.hermes/scripts/us_etf_current_advice_push.py`（Python，非 bash）
 - state file: `~/.hermes/skills/research/us-etf-quant-system/references/cron_run/.advice_state.json`
 
-## 去重字段
-当前建议是否变化，按以下字段比较：
-- `decision.action_label`
-- `decision.dca_multiplier`
-- `decision.new_buy_spy_weight_pct`
-- `decision.new_buy_qqq_weight_pct`
-- `decision.trim_signal_qqq_pct_now`
-- `diagnosis.regime`
+## 投递路径
+1. **cron job 自动投递**：`us-etf-daily-market-advice` (job_id: `0796e6f17c67`)，`deliver: telegram:8208820975`。cron scheduler 捕获脚本 stdout 内容并投递。
+2. **手动投递**：在当前会话里调用 `send_message` 直接发到 `telegram:8208820975`。
 
-如果以上字段与上次保存状态完全一致，则判定为“建议未变化”，脚本输出：
-- `⏭️ 建议内容与昨日相同，跳过推送`
+直接运行脚本（`python us_etf_current_advice_push.py`）只会把内容打印到 stdout，**不会自动发到 Telegram**。
 
-## 注意：市场涨跌 ≠ 建议变化
-即使 SPY / QQQ 当日涨幅有变化，只要建议字段没变，也应跳过推送。
+## 去重逻辑（已注释，2026-06-03 起停用）
+原 dedupe 逻辑会比较 `action_label / dca_multiplier / spy_weight_pct / qqq_weight_pct / trim_signal_pct / regime` 与上次状态，完全一致时跳过推送。
 
-因此：
-- **SPY/QQQ 当日涨幅用于展示市场状态**
-- **不作为是否推送的判断字段**
+2026-06-03 因用户要求"每次都推送"（即使建议未变），dedupe 逻辑已在 `us_etf_current_advice_push.py` 中注释掉，脚本每次都输出完整推送内容。
 
-## 当日涨幅展示
-在 `current_market_advice.py` 中新增：
-- `market.spy_daily_return_pct`
-- `market.qqq_daily_return_pct`
-
-定义：最新交易日收盘价相对前一交易日收盘价的百分比变化。
-
-报告顶部建议保留类似格式：
-- `市场日期：2026-05-28 | SPY 今日涨幅：+0.55% | QQQ 今日涨幅：+0.84%`
+## 手动强制推送
+如 cron 未触发但需要即时推送，直接在会话中调用 `send_message`，推送文本从脚本 stdout 复制。
 
 ## 关键坑
-### 1. 手动执行脚本不会自动把消息发到用户
-直接运行：
-- `bash ~/.hermes/scripts/us_etf_current_advice_push.sh`
+### 1. 调试 cron 失败时先看完整 stack
+cron 报 `ModuleNotFoundError: pandas` 可能是假象（手滑测试子脚本的 PATH 问题）。真正的失败 stack 在 `~/.hermes/cron/output/<job_id>/<date>.md`。详见 `hermes-cron-no-agent-subprocess-pitfall` skill 附2。
 
-只会：
-- 生成 JSON / Markdown 输出
-- 在 stdout 打印文本
-
-**不会自动发到 Telegram / home channel。**
-
-真正的投递路径有两种：
-1. 由 cron job 执行，并依赖 cron job 的 `deliver` 字段投递
-2. 在当前会话里显式调用 `send_message`
-
-### 2. `deliver: origin` 的含义
-`origin` = 回到当前会话来源（例如当前 Telegram 对话），不是广播到所谓“home channel”。
-
-如果用户问“有没有真的推送到我这里”，要检查的是：
-- 是不是只在 shell 里跑了脚本
-- 有没有真正经过 cron deliver 或 `send_message`
-
-## 推荐验证步骤
-1. 运行脚本一次，确认：
-   - `references/cron_run/current_market_advice.json` 已更新
-   - `references/cron_run/.advice_state.json` 已写入
-2. 立刻再运行一次，若建议未变，应输出“跳过推送”
-3. 检查 cron job：
-   - schedule = `0 9 * * 1-5`
-   - deliver = `origin`（或用户指定目标）
-4. 若用户要求“现在推送一次给我”，不要只跑脚本；应额外显式发送消息
+### 2. push 包装脚本的 `cmd[:-2]` 定时炸弹
+`us_etf_current_advice_push.py` 复用 `strict_cmd[:-2]` 构建第二个 subprocess 调用时，恰好切掉了 `--cape-vintage-path <path>` 这一对 flag，导致 `--require-adjusted` 模式下 `prepare_dataset` 抛 RuntimeError。修复：第二个调用完整写出所有 flag，不切片。详见 `us-etf-quant-system` SKILL.md Common Pitfalls #11。

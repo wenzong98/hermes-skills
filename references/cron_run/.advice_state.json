@@ -1,1 +1,1 @@
-{"date": "2026-05-29", "spy_daily_return_pct": 0.25, "qqq_daily_return_pct": 0.37, "action_label": "降低定投但不中断", "dca_multiplier": 0.75, "spy_weight_pct": 40.0, "qqq_weight_pct": 60.0, "trim_signal_pct": 0.0, "regime": "very_expensive"}
+{"date": "2026-06-06", "spy_daily_return_pct": 1.0, "qqq_daily_return_pct": 1.5, "action_label": "维持定投", "dca_multiplier": 1.0, "spy_weight_pct": 50.0, "qqq_weight_pct": 50.0, "trim_signal_pct": 0.0, "regime": "very_expensive"}

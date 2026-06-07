@@ -16,3 +16,25 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Run tests
         run: python -m pytest -q
+
+  xss-discipline:
+    # F5: enforce CONTRIBUTING.md's "no raw innerHTML on data.json text" rule.
+    # `esc()` is defined in `_dashboard_template.html`; any new `innerHTML =`
+    # line that interpolates a `D.*` field must be reviewed for an
+    # `esc(...)` wrapper. We grep for likely XSS smells and let the maintainer
+    # triage exceptions. Runs on every push so the lint never silently rots.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Grep for raw D.* interpolations in innerHTML
+        run: |
+          set -euo pipefail
+          if grep -nE 'innerHTML\s*=.*D\.[A-Za-z_]+' scripts/_dashboard_template.html; then
+            echo "::error::Raw D.* interpolation into innerHTML detected. Wrap user-visible values with esc() per CONTRIBUTING.md." >&2
+            exit 1
+          fi
+          if grep -nE 'innerHTML\s*=.*\+\s*[A-Za-z_]+\.' scripts/_dashboard_template.html | grep -v 'esc(' | grep -v 'pillHtml(' | grep -v 'qdiiHtml'; then
+            echo "::error::Concatenated text into innerHTML without esc(). See CONTRIBUTING.md self-review checklist." >&2
+            exit 1
+          fi
+          echo "esc() discipline check passed."

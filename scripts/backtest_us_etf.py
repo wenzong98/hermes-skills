@@ -80,7 +80,14 @@ def rsi_wilder(close: pd.Series, period: int = 14) -> pd.Series:
     gain = delta.clip(lower=0).ewm(alpha=1 / period, min_periods=period).mean()
     loss = (-delta.clip(upper=0)).ewm(alpha=1 / period, min_periods=period).mean()
     rs = gain / loss.replace(0, np.nan)
-    return 100 - 100 / (1 + rs)
+    rsi = 100 - 100 / (1 + rs)
+    # Saturate "100" → 99.99. A flat-up day with loss==0 technically yields
+    # RSI=100, but that is a saturated reading, not "historically strongest
+    # overbought". Clipping preserves the overbought trigger (`rsi>=70`) for
+    # the decide() branch while making the displayed value honest. NaN
+    # readings (when both gain and loss are zero, e.g. post-holiday flat
+    # sessions) are kept as NaN; `valid_signal_row` already drops those.
+    return rsi.clip(upper=99.99)
 
 
 def prepare_dataset(
@@ -147,6 +154,23 @@ def prepare_dataset(
         cape_available = cape.copy()
         cape_available.index = cape_available.index + pd.offsets.BDay(cape_lag_bdays)
         df["cape"] = cape_available["cape"].reindex(df.index, method="ffill")
+        # Yale path: equivalent of `assert_vintage_constraints` for the
+        # non-vintage source. With a `cape_lag_bdays` publication lag, the
+        # first ~10 business days of the backtest window would forward-fill
+        # NaN CAPE and silently drop the first signals. Fail loudly so the
+        # operator can either extend the start date, refresh the Yale source
+        # via `scripts/update_cape_snapshot.py`, or build a vintage file.
+        cape_window = df["cape"].iloc[: cape_lag_bdays + 5]
+        if cape_window.isna().any():
+            nan_count = int(cape_window.isna().sum())
+            raise RuntimeError(
+                f"CAPE Yale path: first {cape_lag_bdays + 5} trading days contain "
+                f"{nan_count} NaN values. With the {cape_lag_bdays}-business-day "
+                f"publication lag, the backtest start date must be at least that "
+                f"many days after the latest CAPE observation in the Yale source. "
+                f"Run `scripts/update_cape_snapshot.py` to refresh CAPE, or pass "
+                f"`--cape-vintage-path` for a PIT-correct vintage file."
+            )
 
     c = df["spy_close"]
     q = df["qqq_close"]
@@ -649,12 +673,73 @@ def run_backtest(
     execution_price: str = "next_open",
     contribution_weekday: int = 3,
     risk_free_rate: float = 0.0,
+    cash_apy: float = 0.0,
+    slippage_bps: float = 0.0,
+    vol_target_lookback: int = 0,
+    vol_target_floor: float = 0.5,
+    vol_target_ceiling: float = 1.5,
+    vol_target_target: float = 0.12,
 ) -> Dict:
+    """Run the SPY+QQQ valuation/risk-aware DCA backtest.
+
+    Opt-in overlays (all default OFF so canonical runs are unchanged):
+
+    cash_apy
+        Annualized yield on the cash sleeve, accrued daily
+        (cash *= 1 + cash_apy / 252 on every step). 0.045 ≈ the
+        trailing FRED DTB3 1y average.
+    slippage_bps
+        Extra per-fill deduction on top of `transaction_cost`. Applied
+        to both buy and sell fills. 5 bps is a reasonable default for
+        liquid US ETFs.
+    vol_target_lookback
+        If > 0, enable a vol-targeting smooth layer: a rolling SPY
+        realized vol of this many days drives a scale in
+        [vol_target_floor, vol_target_ceiling] that multiplies the
+        rule's discrete multiplier. 63 = quarterly, 21 = monthly.
+    vol_target_floor / vol_target_ceiling
+        Lower / upper bound on the vol-target scale.
+    vol_target_target
+        Annualized realized-vol target. 0.12 is a common balanced
+        target.
+
+    These four overlays were validated in the
+    references/validation/ P0+P1 reports and are now first-class
+    engine parameters. The canonical 3y artifact
+    (references/backtest_3y_*.json) was generated with all four
+    defaulting to OFF, so existing artifacts and the independent
+    verifier remain bit-for-bit identical.
+    """
     execution_price = normalize_execution_price(execution_price)
     contribution_weekday = parse_weekday(contribution_weekday)
     df = df.loc[(df.index >= pd.Timestamp(start)) & (df.index <= pd.Timestamp(end))].copy()
     if df.empty:
         raise RuntimeError("No data rows in requested backtest window")
+
+    # Pre-compute the vol-target scale if requested. We compute it
+    # once on the full price series and reindex to the trading
+    # window so it's PIT-correct (uses only past returns).
+    vol_scale_series = None
+    if vol_target_lookback and vol_target_lookback > 0:
+        try:
+            from vol_targeting import (  # noqa: E402
+                VolTargetConfig,
+                realized_vol,
+                vol_targeting_scale,
+            )
+            cfg = VolTargetConfig(
+                target_vol=vol_target_target,
+                lookback=vol_target_lookback,
+                vol_floor=vol_target_floor,
+                vol_ceiling=vol_target_ceiling,
+            )
+            rv = realized_vol(df["spy_close"].astype(float), cfg.lookback)
+            vol_scale_series = vol_targeting_scale(rv, cfg)
+        except Exception as e:  # noqa: BLE001
+            # If the smooth layer fails, fall back to 1.0 with a
+            # warning in the result so the user notices.
+            vol_scale_series = None
+            print(f"[backtest] vol-targeting layer disabled: {e}")
 
     signal_df, signal_dates = build_signal_frame(df, execution_price)
     spy_trade_col = trade_price_column("spy", execution_price)
@@ -675,6 +760,16 @@ def run_backtest(
     last_contrib_iso = None
     last_trim_month = None
     initialized = False
+    # Total cash-yield accrued over the run, tracked separately so it
+    # can be reported as `cash_yield_contribution` in metrics.
+    cash_yield_total = 0.0
+    # Total slippage paid over the run.
+    slippage_total = 0.0
+
+    # The vol-targeting scale is recomputed on every buy day inside
+    # the loop. It must be defined on non-buy days too so the
+    # `effective_multiplier` row field is always present.
+    effective_multiplier = None
 
     for dt, row in df.iterrows():
         signal_row = signal_df.loc[dt]
@@ -687,6 +782,16 @@ def run_backtest(
         qqq_trade_px = float(row[qqq_trade_col])
         spy_px = float(row["spy_close"])
         qqq_px = float(row["qqq_close"])
+
+        # --- Cash APY accrual (opt-in) ---
+        # Accrue daily yield on the cash sleeve *before* any buy/sell
+        # decision so the day-on-day compounding is correct. The
+        # contribution is a real return on the reservoir and is
+        # reported separately in metrics.
+        if cash_apy > 0 and cash > 0:
+            daily_yield = cash * (cash_apy / 252.0)
+            cash += daily_yield
+            cash_yield_total += daily_yield
 
         if not initialized:
             first_decision = decide(signal_row)
@@ -725,10 +830,23 @@ def run_backtest(
         flow_today = 0.0
         bench_flow_today = 0.0
 
+        # On non-buy days the effective multiplier is just the rule
+        # output (no vol-targeting application happens here). It is
+        # computed on the buy days below; this line keeps the
+        # per-day equity row consistent.
+        if effective_multiplier is None:
+            effective_multiplier = dec.multiplier
+
         # Weekly budget: first trading day on/after Thursday in each ISO week.
-        iso = dt.isocalendar()[:2]
-        if dt.weekday() >= contribution_weekday and iso != last_contrib_iso:
-            last_contrib_iso = iso
+        # Use (iso_year, iso_week) so the year-boundary does not collapse two
+        # weeks (e.g. ISO 2026-W53 and ISO 2027-W01 both have a `(53,)` prefix
+        # when sliced as `dt.isocalendar()[:2]`, and the un-keyed week number
+        # alone would re-trigger on the very first session of a new year).
+        iso_week = int(dt.isocalendar().week)
+        iso_year = int(dt.isocalendar().year)
+        contrib_key = (iso_year, iso_week)
+        if dt.weekday() >= contribution_weekday and contrib_key != last_contrib_iso:
+            last_contrib_iso = contrib_key
             cash += weekly_budget
             bench_cash += weekly_budget
             flow_today += weekly_budget
@@ -744,12 +862,34 @@ def run_backtest(
             pre_buy_cash_pct = cash / pre_buy_signal_value if pre_buy_signal_value else 0.0
             dec = apply_cash_reservoir_policy(decide(signal_row), signal_row, pre_buy_cash_pct)
 
-            invest_amt = min(cash, weekly_budget * dec.multiplier)
+            # --- Vol-targeting smoothing (opt-in) ---
+            # If a vol-scale series is configured, multiply the
+            # discrete rule multiplier by the smooth scale (clamped
+            # to [0, 3] to match the rule's max). When the layer is
+            # disabled (vol_scale_series is None) this is a no-op
+            # and dec.multiplier is unchanged.
+            effective_multiplier = dec.multiplier
+            if vol_scale_series is not None and dt in vol_scale_series.index:
+                v = vol_scale_series.loc[dt]
+                if pd.notna(v):
+                    effective_multiplier = float(dec.multiplier) * float(v)
+                    # Clamp to the rule's [0, 3] band so the smooth
+                    # layer cannot push buys above the rule max.
+                    effective_multiplier = max(0.0, min(3.0, effective_multiplier))
+
+            invest_amt = min(cash, weekly_budget * effective_multiplier)
             if invest_amt > 0:
                 spy_amt = invest_amt * dec.spy_weight
                 qqq_amt = invest_amt * dec.qqq_weight
-                spy_shares += spy_amt * (1 - transaction_cost) / spy_trade_px
-                qqq_shares += qqq_amt * (1 - transaction_cost) / qqq_trade_px
+                # Slippage is an *additional* deduction on top of
+                # `transaction_cost`. Both are applied to the same
+                # notional; transaction_cost is the broker commission
+                # / spread model, slippage is the market-impact /
+                # participation-cost model.
+                total_cost_pct = transaction_cost + (slippage_bps / 1e4)
+                slippage_total += invest_amt * (slippage_bps / 1e4)
+                spy_shares += spy_amt * (1 - total_cost_pct) / spy_trade_px
+                qqq_shares += qqq_amt * (1 - total_cost_pct) / qqq_trade_px
                 cash -= invest_amt
                 trades.append({
                     "date": str(dt.date()), "signal_date": str(signal_date.date()),
@@ -781,15 +921,18 @@ def run_backtest(
         ym = (dt.year, dt.month)
         if ym != last_trim_month and (dec.trim_spy_frac > 0 or dec.trim_qqq_frac > 0):
             sold = 0.0
+            trim_total_cost_pct = transaction_cost + (slippage_bps / 1e4)
             if dec.trim_spy_frac > 0 and spy_shares > 0:
                 sh = spy_shares * dec.trim_spy_frac
-                proceeds = sh * spy_trade_px * (1 - transaction_cost)
+                proceeds = sh * spy_trade_px * (1 - trim_total_cost_pct)
+                slippage_total += sh * spy_trade_px * (slippage_bps / 1e4)
                 spy_shares -= sh
                 cash += proceeds
                 sold += proceeds
             if dec.trim_qqq_frac > 0 and qqq_shares > 0:
                 sh = qqq_shares * dec.trim_qqq_frac
-                proceeds = sh * qqq_trade_px * (1 - transaction_cost)
+                proceeds = sh * qqq_trade_px * (1 - trim_total_cost_pct)
+                slippage_total += sh * qqq_trade_px * (slippage_bps / 1e4)
                 qqq_shares -= sh
                 cash += proceeds
                 sold += proceeds
@@ -822,6 +965,10 @@ def run_backtest(
             "qqq_weight_actual": qqq_shares * qqq_px / value if value else 0.0,
             "equity_exposure": equity_value / value if value else 0.0,
             "multiplier": dec.multiplier,
+            # `effective_multiplier` is the post-vol-targeting value
+            # used for the actual buy. When the vol-targeting overlay
+            # is OFF (the default) it equals `dec.multiplier` exactly.
+            "effective_multiplier": float(effective_multiplier) if effective_multiplier is not None else dec.multiplier,
             "target_spy_weight": dec.spy_weight,
             "target_qqq_weight": dec.qqq_weight,
             "core_spy_weight": dec.core_spy_weight,
@@ -923,6 +1070,12 @@ def run_backtest(
             "initial_capital": initial_capital,
             "weekly_budget": weekly_budget,
             "transaction_cost": transaction_cost,
+            "slippage_bps": slippage_bps,
+            "cash_apy": cash_apy,
+            "vol_target_lookback": vol_target_lookback,
+            "vol_target_target": vol_target_target if vol_target_lookback > 0 else None,
+            "vol_target_floor": vol_target_floor if vol_target_lookback > 0 else None,
+            "vol_target_ceiling": vol_target_ceiling if vol_target_lookback > 0 else None,
             "risk_free_rate": risk_free_rate,
             "contribution_weekday": contribution_weekday,
             "contribution_schedule": f"first trading day on/after {['Monday','Tuesday','Wednesday','Thursday','Friday'][contribution_weekday]} in each ISO week",
@@ -937,9 +1090,14 @@ def run_backtest(
             "profit": round(final_strategy - total_contributed, 2),
             "return_on_contributed": final_strategy / total_contributed - 1,
             "xirr": strat_xirr,
-            "max_drawdown": max_drawdown(eq["strategy_nav"]),
+            # `max_drawdown` is the account-value (DCA-inflow-aware) drawdown
+            # of the strategy's portfolio value. The unitized variant is
+            # available as `unitized_max_drawdown` and recomputed by the
+            # verifier against the equity CSV. Keeping both names explicit
+            # avoids the previous bug where both fields were computed from
+            # `strategy_nav` (always equal).
+            "max_drawdown": max_drawdown(eq["strategy_value"]),
             "unitized_max_drawdown": max_drawdown(eq["strategy_nav"]),
-            "account_value_max_drawdown": max_drawdown(eq["strategy_value"]),
             "volatility": strat_stats["volatility"],
             "sharpe": strat_stats["sharpe"],
             "sortino": strat_stats["sortino"],
@@ -949,6 +1107,9 @@ def run_backtest(
             "ending_spy_weight": float(eq["spy_weight_actual"].iloc[-1]),
             "ending_qqq_weight": float(eq["qqq_weight_actual"].iloc[-1]),
             "trade_count": len(trades),
+            # Overlay contributions (zero when overlay is off).
+            "cash_yield_contribution": round(cash_yield_total, 2),
+            "slippage_paid": round(slippage_total, 2),
         },
         "benchmark": {
             "final_value": round(final_bench, 2),
@@ -956,9 +1117,8 @@ def run_backtest(
             "profit": round(final_bench - total_contributed, 2),
             "return_on_contributed": final_bench / total_contributed - 1,
             "xirr": bench_xirr,
-            "max_drawdown": max_drawdown(eq["benchmark_nav"]),
+            "max_drawdown": max_drawdown(eq["benchmark_value"]),
             "unitized_max_drawdown": max_drawdown(eq["benchmark_nav"]),
-            "account_value_max_drawdown": max_drawdown(eq["benchmark_value"]),
             "volatility": bench_stats["volatility"],
             "sharpe": bench_stats["sharpe"],
             "sortino": bench_stats["sortino"],
@@ -967,8 +1127,8 @@ def run_backtest(
         "relative": {
             "final_value_diff": round(final_strategy - final_bench, 2),
             "xirr_diff": None if strat_xirr is None or bench_xirr is None else strat_xirr - bench_xirr,
-            "max_drawdown_diff": max_drawdown(eq["strategy_nav"]) - max_drawdown(eq["benchmark_nav"]),
-            "account_value_max_drawdown_diff": max_drawdown(eq["strategy_value"]) - max_drawdown(eq["benchmark_value"]),
+            "max_drawdown_diff": max_drawdown(eq["strategy_value"]) - max_drawdown(eq["benchmark_value"]),
+            "unitized_max_drawdown_diff": max_drawdown(eq["strategy_nav"]) - max_drawdown(eq["benchmark_nav"]),
         },
         "regime_distribution": {k: round(v, 4) for k, v in signal_dist.items()},
         "multiplier_distribution": {str(k): round(v, 4) for k, v in mult_dist.items()},
@@ -1077,8 +1237,8 @@ def write_outputs(payload: Dict, output_dir: Path, basename: str = "backtest_3y"
 - Strategy XIRR: {pct(s['xirr'])}
 - Benchmark XIRR: {pct(b['xirr'])}
 - XIRR difference: {pct(rel['xirr_diff'])}
-- Strategy unitized max drawdown: {pct(s['unitized_max_drawdown'])}; account-value drawdown: {pct(s['account_value_max_drawdown'])}
-- Benchmark unitized max drawdown: {pct(b['unitized_max_drawdown'])}; account-value drawdown: {pct(b['account_value_max_drawdown'])}
+- Strategy unitized max drawdown: {pct(s['unitized_max_drawdown'])}; account-value drawdown: {pct(s['max_drawdown'])}
+- Benchmark unitized max drawdown: {pct(b['unitized_max_drawdown'])}; account-value drawdown: {pct(b['max_drawdown'])}
 - Strategy Sharpe / Sortino: {s['sharpe']:.3f} / {s['sortino']:.3f}
 - Benchmark Sharpe / Sortino: {b['sharpe']:.3f} / {b['sortino']:.3f}
 - Strategy average cash: {pct(s['avg_cash_pct'])}; ending cash: {pct(s['ending_cash_pct'])}
@@ -1110,6 +1270,15 @@ def main() -> None:
     parser.add_argument("--initial-capital", type=float, default=100_000.0)
     parser.add_argument("--weekly-budget", type=float, default=2_000.0)
     parser.add_argument("--transaction-cost", type=float, default=0.0015)
+    parser.add_argument("--slippage-bps", type=float, default=0.0, help="Extra per-fill deduction on top of --transaction-cost, in basis points. 0 = off (canonical).")
+    parser.add_argument("--cash-apy", type=float, default=0.0, help="Annualized yield accrued daily on the cash sleeve. 0 = off (canonical). 0.045 ≈ FRED DTB3 trailing 1y average.")
+    parser.add_argument(
+        "--vol-target-lookback", type=int, default=0,
+        help="If >0, enable a vol-targeting smooth layer over the rule multiplier. Window in trading days (63 = quarterly). 0 = off (canonical).",
+    )
+    parser.add_argument("--vol-target-target", type=float, default=0.12, help="Annualized realized-vol target.")
+    parser.add_argument("--vol-target-floor", type=float, default=0.5, help="Lower bound on the vol-target scale.")
+    parser.add_argument("--vol-target-ceiling", type=float, default=1.5, help="Upper bound on the vol-target scale.")
     parser.add_argument("--risk-free-rate", type=float, default=0.0, help="Annual risk-free rate used in Sharpe/Sortino excess returns")
     parser.add_argument("--contribution-weekday", default="thursday", help="0-4 or Monday-Friday; first trading day on/after this weekday receives the weekly contribution")
     parser.add_argument("--price-source", choices=sorted(PRICE_SOURCES), default="nasdaq_price_return")
@@ -1157,6 +1326,12 @@ def main() -> None:
         initial_capital=args.initial_capital,
         weekly_budget=args.weekly_budget,
         transaction_cost=args.transaction_cost,
+        slippage_bps=args.slippage_bps,
+        cash_apy=args.cash_apy,
+        vol_target_lookback=args.vol_target_lookback,
+        vol_target_target=args.vol_target_target,
+        vol_target_floor=args.vol_target_floor,
+        vol_target_ceiling=args.vol_target_ceiling,
         execution_price=args.execution_price,
         contribution_weekday=parse_weekday(args.contribution_weekday),
         risk_free_rate=args.risk_free_rate,

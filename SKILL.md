@@ -36,6 +36,7 @@ The included script and artifacts live in this skill folder:
 - `references/backtest_3y_results.json` — machine-readable metrics.
 - `references/backtest_3y_equity_curve.csv` — daily equity curve.
 - `references/backtest_3y_trades.csv` — simulated DCA/trim actions.
+- `references/dashboard/index.html` — offline research dashboard combining daily advice, signal ranking, and backtest evidence, with a separate PIT/data-quality audit view.
 - `references/joinquant_china_qdii_mapping.md` — how to map SPY/QQQ research into A股场内 QDII / LOF execution, including same-index ETF selection and premium-aware execution notes.
 - `references/github_publishing_workflow.md` — current GitHub repo URL, first-time publishing commands, `gh repo create` pitfalls, and what to exclude from commits.
 - `assets/backtest_3y_equity_curve.png` — equity curve chart.
@@ -94,9 +95,254 @@ Outputs:
 
 - `references/current_run/current_market_advice.md`
 - `references/current_run/current_market_advice.json`
-- `references/cron_push_dedup_logic.md` — 工作日 9:00 推送、与前次建议去重、以及投递语义/手动发送坑点说明。
+- `references/cron_push_dedup_logic.md` — 推送投递路径、dedupe 停用说明（2026-06-03）、手动推送方法及两个关键坑（cron stack 误判、`cmd[:-2]` 定时炸弹）。
 - `references/push_notification_workflow.md` — 中文推送模板的推荐结构、6 字段去重规则，以及为何用 Python 而不是 bash 处理含中文 JSON/Markdown。
 - `references/push_content_improvements.md` — 推送内容增强建议：QDII 溢价执行层、自动定投 vs 模型建议差额、本次触发原因、阈值预警和周报/月报分层。
+
+## LLM 副驾驶（可选 — 方案 A 审查 + 方案 B 解释）
+
+`current_market_advice.py` 内置可选的 LLM 副驾驶 hook，由 `--llm-copilot` 开启。LLM **只读不写**：审查规则引擎的输出（方案 A）、把人话翻译规则（方案 B），不参与 `dca_multiplier` 或 `new_buy_*_weight_pct` 的计算。LLM 失败时主推送照常发，产物只追加 `llm_review` / `llm_explanation` 字段，不动原始 payload。
+
+**典型用法（开启副驾驶）：**
+
+```bash
+cd ~/.hermes/skills/research/us-etf-quant-system
+python3 scripts/current_market_advice.py \
+  --portfolio-config ~/.hermes/portfolio_config.json \
+  --llm-copilot \
+  --output-dir references/current_run
+```
+
+副驾驶额外产出：
+
+- `references/current_run/llm_review.md` — 方案 A 推送副标题（verdict + 立场 + 风险盲点 + 一句提醒）
+- `references/current_run/llm_explanation.md` — 方案 B 推送副标题（人话版规则理由，3-4 句）
+- 原始 `current_market_advice.json` 增加 `llm_review` 和 `llm_explanation` 字段（默认；用 `--no-llm-rewrite` 可不合并）
+
+**只跑其中一个方案：**
+
+```bash
+# 只跑方案 A（副驾驶审查）
+python3 scripts/current_market_advice.py --llm-copilot --llm-plans review ...
+
+# 只跑方案 B（rationale 解释）
+python3 scripts/current_market_advice.py --llm-copilot --llm-plans explain ...
+```
+
+**环境变量：**
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `LLM_API_KEY` | （空） | LLM API key。无 key 且非 mock 时副驾驶跳过。 |
+| `LLM_BACKEND` | `anthropic` | `anthropic` / `openai` (兼容协议，含 DeepSeek/MiniMax/OpenAI/智谱) / `mock` |
+| `LLM_MODEL` | `claude-3-5-haiku-latest` | 模型名 |
+| `LLM_BASE_URL` | （默认官方） | OpenAI 兼容模式必填 |
+| `LLM_TIMEOUT_S` | `20` | 单次超时秒数 |
+| `LLM_MAX_RETRIES` | `2` | 重试次数 |
+| `LLM_USAGE_LOG` | `references/llm_usage.jsonl` | 每次调用的 token 用量追加到 jsonl |
+
+**离线模式（测试 / CI / 预览推送内容）：**
+
+```bash
+LLM_BACKEND=mock python3 scripts/llm_copilot.py \
+  --advice-json references/current_run/current_market_advice.json \
+  --output-dir /tmp/llm_preview
+```
+
+**重要护栏：**
+
+1. **LLM 零决策权** — `dca_multiplier`、`new_buy_*_weight_pct` 永远由规则引擎计算，LLM 不能改
+2. **失败兜底** — LLM 调用超时 / 解析失败 / API 报错时，主报告推送照常发，LLM 字段填 fallback 文案 + `error` 字段
+3. **强 PIT** — 给 LLM 的事实数据全部是 T-1 收盘后快照，不含未来信息
+4. **JSON 输出解析** — 严格 JSON Schema，宽松解析（去掉 ```json 包裹、抓首尾 {}）
+5. **agreement 强约束** — LLM 输出 `disagree` 时不修改决策，只在 `reminder` 字段提示人工核查
+
+**Token 成本（单次周报）：**
+
+| 方案 | 输入 | 输出 | 估计成本 |
+|------|------|------|------|
+| 方案 A 副驾驶审查 | ~1.5k | ~200 | < ¥0.02 / 次 |
+| 方案 B rationale 解释 | ~750 | ~200 | < ¥0.01 / 次 |
+| 方案 A + B 合计 | ~2.2k | ~400 | < ¥0.03 / 次 |
+
+按周跑 → 一年约 ¥1.5；按月跑 → 几乎免费。
+
+**模块结构：**
+
+- `llm/schema.py` — `WeeklyAdvice` 结构化输出契约（`LLMReview` + `LLMExplanation`）
+- `llm/client.py` — 极简 LLM 客户端（anthropic / openai / mock），超时 + 重试 + 用量日志
+- `llm/advisor.py` — `review_signal(advice)` + `explain_decision(advice)`，prompt 模板与解析
+- `scripts/llm_copilot.py` — CLI 入口，独立跑副驾驶
+- `tests/test_llm_copilot.py` — 16 个离线测试（mock 后端）
+
+## LLM 副驾驶 v2（可选 — 工具化 + ETF 策略 YAML）
+
+v2 在 v1 的"喂数据"基础上，让 LLM **主动调用工具** 拉取事实数据（市场快照 / 规则引擎输出 / 决策历史 / 宏观新闻），再生成审查结论。**LLM 仍然只读** — 工具返回值不修改任何 `dca_multiplier` 或权重。
+
+**v1 vs v2 差异：**
+
+| 维度 | v1 静态 | v2 工具化 |
+|---|---|---|
+| 数据流 | 我们喂给 LLM | LLM 主动拉 |
+| 工具调用 | 0 | 最多 5 次（硬上限） |
+| 审查依据 | 我们提供的事实 + 规则 | LLM 拉取的事实 + 主动新闻核查 |
+| 透明度 | 输出 verdict + risks | 同左 + 工具调用历史 |
+| Token 成本 | ~¥0.03 | ~¥0.10-0.20 |
+
+**v2 典型用法：**
+
+```bash
+cd ~/.hermes/skills/research/us-etf-quant-system
+LLM_BACKEND=mock python3 scripts/llm_copilot.py \
+  --advice-json references/current_run/current_market_advice.json \
+  --output-dir references/current_run \
+  --plans review,explain \
+  --strategy etf_macro_regime \
+  --tool-budget 5
+```
+
+**可用策略（`strategies/*.yaml`）：**
+
+| 策略 | 触发场景 | 工具 |
+|---|---|---|
+| `etf_macro_regime` | 任何周报（CAPE/VIX/趋势审查） | get_market_snapshot + get_rule_engine_output + search_macro_news |
+| `etf_panic_ladder` | VIX 接近 28/35/45 阶梯 | get_market_snapshot + get_recent_decisions + search_macro_news |
+
+新增策略：在 `strategies/` 下放 YAML，运行 `llm_strategies.list_strategies()` 即可看到。
+
+**v2 额外产出：**
+
+- `references/current_run/llm_strategy_review.md` — v2 推送副标题（策略名 + verdict + 风险 + 工具调用历史）
+- 合并 JSON 增加 `llm_strategy_review` 字段：
+  ```json
+  {
+    "strategy": "etf_macro_regime",
+    "displayName": "ETF 宏观周期审查",
+    "review": {... LLMReview fields ...},
+    "toolCalls": [{"name", "args", "resultPreview"}, ...]
+  }
+  ```
+
+**工具调用协议（轻量版）：**
+
+- LLM 输出 `<tool_call>{"name": "工具名", "args": {...}}</tool_call>`
+- 我们执行工具，把结果以 `tool_result(name): ```json\n{...}\n```` 形式追加
+- 最多 5 次调用（`ToolBudget(max_calls=5)`）
+- 失败兜底：工具抛异常 → 记录到 `tool_errors` → 继续循环
+- 工具调用历史 + 工具错误都会出现在 `llm_strategy_review.md` 和 dashboard
+
+**v2 工具：**
+
+1. `get_market_snapshot()` — 最新 SPY/QQQ/VIX/CAPE 事实（PIT 快照）
+2. `get_rule_engine_output()` — 规则引擎当前判定（regime / multiplier / 权重 / panic_tier）
+3. `get_recent_decisions(n_weeks=8)` — 近 N 周决策历史
+4. `search_macro_news(query)` — 宏观新闻搜索（详见下节）
+
+**模块结构（v2 增量）：**
+
+- `llm/tools.py` — 4 个只读工具 + `ToolBudget` + `execute_tool_call()`
+- `llm/strategies.py` — YAML loader（无 PyYAML 依赖）
+- `llm/advisor.py` — `review_with_tools_ex()` 返回 `(LLMReview, tool_log)`
+- `strategies/etf_*.yaml` — 策略定义
+- `tests/test_llm_tools.py` / `test_llm_strategies.py` / `test_llm_copilot_v2.py` — 共 51 个测试
+
+## 新闻搜索：Tavily / SerpAPI（实接）
+
+v2 工具 `search_macro_news` 实接 **Tavily**（主）+ **SerpAPI**（fallback）+ **mock**（最终兜底）。失败链路：Tavily HTTP 错误 → SerpAPI → 7 条硬编码 mock 新闻 → `[]`。
+
+**环境变量：**
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `TAVILY_API_KEY` | （空） | Tavily API key。免费档 1000 次/月。 |
+| `SERPAPI_KEY` | （空） | SerpAPI API key。免费档 100 次/月。 |
+| `NEWS_TIMEOUT_S` | `5` | 单次超时秒数 |
+| `NEWS_MAX_RESULTS` | `5` | 单次最大返回数（硬上限 10） |
+
+**两个都缺时：** 自动用 mock（7 条硬编码假新闻，标 `source=mock_offline`），让 LLM 仍能工作。
+
+**API key 配置（推荐用 .env 文件）：**
+
+```bash
+# 复制模板
+cp .env.example .env
+# 编辑 .env 填入真实 key（.env 已在 .gitignore 中）
+```
+
+或直接 export：
+```bash
+export TAVILY_API_KEY=tvly-...
+export SERPAPI_KEY=...
+```
+
+**安全护栏：**
+
+- 全部失败时返回 `[]`，LLM 工具调用循环不崩
+- `source` 字段明确标识 provider — LLM 不会把 mock 当真新闻
+- query 清洗：剥控制字符 + 截断到 200 字符
+- 每次调用 token 计入 `references/llm_usage.jsonl`
+- **Tavily `search_depth` 必须用 `basic` / `fast` / `advanced` / `ultra-fast` 之一** — `news` 是无效值（实测 422）
+
+## 宏观参考内容（Dashboard 旁路 — RSS / GDELT / 财经日历）
+
+与 Tavily/SerpAPI 不同：**不进 LLM 工具调用**，仅作为 dashboard 旁路展示。
+
+| 来源 | 用途 | 频率 | 缓存 |
+|---|---|---|---|
+| RSS (Reuters/Bloomberg/MarketWatch) | 财经头条 | 实时 | 6h TTL |
+| GDELT 2.0 doc API | 全球事件流（rate-limit 严格，graceful degrade） | 24h TTL | 24h |
+| ForexFactory 公开 JSON 镜像 | 经济日历（CPI/NFP/FOMC 等） | 6h TTL | 6h |
+| Federal Reserve 公开日历 | FOMC 会议 + Fed 官员讲话 | 6h TTL | 6h |
+
+**LLM 中文翻译（仅当 LLM_API_KEY 存在时）：**
+- RSS 标题 + 财经日历事件名批量翻译为中文
+- 失败兜底英文
+- 双语显示：中文作主标题 + 英文作 `title=` 悬停 tooltip
+- 单次成本：~¥0.002/批
+
+**约束：**
+
+- **只缓存 headline + url + ts**（不缓存正文 — 合规 + 版权）
+- 缓存路径：`references/data_cache/macro_feeds/`，按 `<source>_<query>.json` 命名
+- 失败 → 空列表 + log warning（绝不抛到 dashboard）
+- GDELT rate-limit 写空 cache 防止重试风暴（24h TTL）
+
+**启用方式：**
+
+`scripts/build_dashboard.py` 自动调用 `_macro_feeds_block()` 拉取，无需额外 CLI 标志。Dashboard 在 LLM 副驾驶卡片下方显示独立的 "宏观参考内容" 卡片，三栏布局：RSS / GDELT / 日历。
+
+## Dashboard
+
+Open `references/dashboard/index.html` for the offline research dashboard. It combines decision, signal, and backtest evidence under `#overview`, keeps `#data-quality` as the audit view, and bundles ECharts under `references/dashboard/vendor/`.
+
+Run the complete daily production flow in order with:
+
+```bash
+python3 scripts/run_daily_pipeline.py
+```
+
+The pipeline stops on the first failed step and runs: update market databases → generate strict advice → archive the daily decision → rerun the strict backtest → build the dashboard. Daily decision snapshots are stored in `data/decisions.db` and drive the dashboard decision calendar.
+
+Real executions are deliberately separate from model advice and backtest trades. Initialize or record them with:
+
+```bash
+python3 scripts/trade_ledger.py init
+python3 scripts/trade_ledger.py record \
+  --executed-at 2026-06-05T09:35:00-04:00 \
+  --account brokerage --ticker QQQ --side BUY \
+  --quantity 2 --price 715.25 --fee 1.00 --order-id order-123
+python3 scripts/trade_ledger.py list
+```
+
+The independent real-execution ledger is `data/trades.db`. Never insert model recommendations or backtest trades into it automatically.
+
+When changing the dashboard, edit `scripts/_dashboard_template.html` and, if display fields are needed, `scripts/build_dashboard.py`; then rebuild with:
+
+```bash
+python3 scripts/build_dashboard.py --no-open
+```
+
+Do not manually edit `references/dashboard/index.html` for durable changes because it is generated from the template and normalized `data.json`.
 
 ## Portfolio Config Conventions
 
@@ -188,13 +434,13 @@ Primary metrics:
 
 Window: **2023-05-31 → 2026-05-29** using $100,000 initial capital, $2,000 weekly budget, previous-close signals, next-open execution, and 10-business-day CAPE availability lag. The packaged run still uses Nasdaq price-return data because Yahoo/Alpha adjusted providers are optional and not active in this run.
 
-- Strategy final value: **$619,624.16**.
-- Benchmark final value: **$649,631.40**.
-- Strategy XIRR: **22.87%**.
-- Benchmark XIRR: **25.72%**.
-- Strategy unitized max drawdown: **-20.03%**; account-value drawdown: **-16.86%**.
-- Benchmark unitized max drawdown: **-21.01%**; account-value drawdown: **-17.85%**.
-- Strategy average cash: **5.21%**; ending cash: **14.85%**.
+- Strategy final value: **$630,424.43**.
+- Benchmark final value: **$661,267.00**.
+- Strategy XIRR: **23.91%**.
+- Benchmark XIRR: **26.80%**.
+- Strategy unitized max drawdown: **-19.89%**; account-value drawdown: **-16.75%**.
+- Benchmark unitized max drawdown: **-20.83%**; account-value drawdown: **-17.70%**.
+- Strategy average cash: **5.01%**; ending cash: **14.58%**.
 - Latest signal from 2026-05-28 for 2026-05-29 execution: **very_expensive**, **0.75x DCA**, new-buy split **SPY 40% / QQQ 60%**.
 
 Interpretation: in a strong high-valuation bull market, the risk-aware strategy trails the 50/50 fully-invested benchmark, but it keeps a cash reservoir and slightly reduces drawdown. This is expected behavior, not a bug. If the user explicitly prioritizes maximum bull-market capture, increase the trend-confirmed minimum from 0.75x to 1.0x.
@@ -211,6 +457,7 @@ Interpretation: in a strong high-valuation bull market, the risk-aware strategy 
 8. **Mixing research tickers with execution tickers.** For Chinese users, SPY/QQQ often describe the research layer while actual execution happens via A股场内 QDII / LOF proxies. Separate the “index view” from the “which domestic fund to buy” decision.
 9. **Ignoring QDII premium / quota distortions.** Same-index domestic ETFs can diverge materially because of申购赎回限制、外汇额度、节假日和场内溢价. When advice is meant to be actionable in RMB channels, add an execution layer that checks premium, liquidity, and availability.
 10. **Publishing runtime noise to GitHub.** When exporting this skill to the user's `wenzong98/hermes-skills` repository, keep durable skill assets but avoid Python caches and transient cron/current-run state unless the user explicitly asks to archive a snapshot. See `references/github_publishing_workflow.md`.
+11. **Pushing `current_market_advice.py` with stripped flags from the cron wrapper.** When the Telegram push wrapper (`~/.hermes/scripts/us_etf_current_advice_push.py`) reuses a base `strict_cmd` list and slices it to build a second invocation (e.g. `strict_cmd[:-2] + ["--output-dir", ...]` for the legacy `cron_run` copy), the slice can silently drop a paired flag+value such as `--cape-vintage-path <path>`. With `--require-adjusted` set, `prepare_dataset` then aborts with `--require-adjusted is set but no --cape-vintage-path was provided`, taking the whole push down. Rule: when a cron wrapper reuses a flag set, spell out the full flag list in the second call rather than slicing — `cmd[:-2]` looks innocent but is a time bomb. If the push ever fails with that exact RuntimeError, the wrapper is the first place to inspect.
 
 ## Verification Checklist
 
@@ -226,6 +473,65 @@ Interpretation: in a strong high-valuation bull market, the risk-aware strategy 
 ## Operational Cadence
 
 This section captures the minimum recurring-maintenance rituals that keep the strategy PIT-correct, the verifier green, and the production paths free of stale data.
+
+### Daily Cron Pipeline (LLM 副驾驶 v2 集成)
+
+每天早上 9 点（Mon-Sat）的 LaunchAgent `com.hermes.usetf-daily-refresh` 触发 `~/.hermes/scripts/usetf-daily-refresh.sh`，按以下顺序跑：
+
+```
+[step 1/3] run_daily_pipeline.py       # market DBs → advice → backtest → dashboard
+[step 2/3] us_etf_llm_copilot.sh       # LLM 副驾驶 v1 (review/explain) + v2 (etf_macro_regime)
+[step 3/3] us_etf_current_advice_push.py  # Telegram 推送
+```
+
+**LLM 副驾驶步骤（`us_etf_llm_copilot.sh`）的细节：**
+
+1. **加载 env** — `source ~/.hermes/.env` 注入 `TAVILY_API_KEY` / `SERPAPI_KEY` / `LLM_API_KEY`
+2. **决定 backend** — `LLM_API_KEY` 缺失则自动 `LLM_BACKEND=mock`（0 远程调用，仅本地审查）
+3. **找最新 advice** — 优先 `current_run_strict/`，fallback `current_run/`
+4. **去重** — 如果 state 文件 signature 与当前 advice 一致，跳过整个 LLM 步骤（**省 token**）；per-output 再检查 `with_llm.json` mtime
+5. **跑 LLM** — 对 `current_run_strict/` 和 `cron_run/` 两个目录各跑一次
+   - v1: `review` + `explain`（~2k 输入 + 400 输出，~¥0.03）
+   - v2: `etf_macro_regime` 工具化（最多 5 次工具调用，~¥0.10-0.20）
+6. **重建 dashboard** — 让 v2 + macro feeds 出现在浏览器
+
+**成本估算（按真实 key）：**
+
+| 模式 | 每次 | 一年（按 250 工作日） |
+|---|---|---|
+| 全 mock（无 key） | ¥0 | ¥0 |
+| v1 + v2 全套（anthropic） | ~¥0.15-0.25 | ~¥40-60 |
+| 去重命中（不重跑） | ¥0 | ¥0 |
+
+实际会比估算低，因为周一周五（regime 不变）经常命中 dedup。
+
+**API key 配置：**
+
+```bash
+# 推荐：把 key 加到 ~/.hermes/.env（不与项目代码混合）
+echo 'TAVILY_API_KEY=tvly-...' >> ~/.hermes/.env
+echo 'SERPAPI_KEY=...' >> ~/.hermes/.env
+echo 'LLM_API_KEY=sk-ant-...' >> ~/.hermes/.env
+
+# 或用项目级 .env（已 .gitignore）
+cp .env.example .env
+vim .env
+```
+
+**日志：**
+
+- `~/.hermes/cron/usetf-daily-refresh.log` — 整个 pipeline
+- `~/.hermes/cron/usetf-llm-copilot.log` — LLM copilot 步骤
+- `references/llm_usage.jsonl` — token 用量 jsonl
+
+**手动触发（调试）：**
+
+```bash
+bash ~/.hermes/scripts/us_etf_llm_copilot.sh
+# 或强制跳过去重（重新跑 LLM）
+touch ~/.hermes/skills/research/us-etf-quant-system/references/cron_run/.advice_state.json
+bash ~/.hermes/scripts/us_etf_llm_copilot.sh
+```
 
 ### CAPE Vintage Refresh
 

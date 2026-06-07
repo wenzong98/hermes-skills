@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import logging
 
 import pandas as pd
 import importlib.util
@@ -20,6 +21,8 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def load_backtest_module(skill_dir: Path):
@@ -61,15 +64,56 @@ def assert_latest_cape_pit(df, latest_market_close) -> None:
         )
 
 
+def latest_index_snapshot(bt, symbol: str, end: str, args) -> Dict[str, Any]:
+    """Fetch a Yahoo index close snapshot for display-only market cards.
+
+    Strategy rules use SPY/QQQ ETF data. The dashboard's headline market
+    cards, however, are labelled as broad market indices and should match
+    Yahoo's market page rather than ETF quote pages.
+    """
+    fetch_start = (pd.Timestamp(end) - pd.Timedelta(days=14)).strftime("%Y-%m-%d")
+    raw = bt.fetch_etf_ohlcv(
+        symbol,
+        fetch_start,
+        end,
+        "yahoo_chart_adjusted",
+        allow_price_return_fallback=False,
+        cache_dir=getattr(args, "cache_dir", None),
+    )
+    rows = raw.dropna(subset=["close"]).sort_index()
+    if len(rows) < 2:
+        raise RuntimeError(f"Not enough Yahoo index rows for {symbol}")
+    row = rows.iloc[-1]
+    prev_row = rows.iloc[-2]
+    close = float(row["close"])
+    prev_close = float(prev_row["close"])
+    return {
+        "date": str(pd.Timestamp(row.name).date()),
+        "close": round(close, 2),
+        "daily_return_pct": (close / prev_close - 1) * 100,
+        "source": "yahoo_chart_adjusted",
+        "symbol": symbol,
+    }
+
+
 def pct(x: float, digits: int = 2) -> str:
     return f"{x * 100:.{digits}f}%"
 
 
 def classify_market(m: Dict[str, Any]) -> str:
+    # Order matters: hot/extreme regimes first so the dashboard's
+    # `diagnosis.summary` line always reflects the most actionable bucket
+    # rather than falling through to the generic "中性/分歧" tail.
     if m["cape"] >= 42 and m["trend_up"] and m["vix"] < 20:
         return "极高估值 + 强趋势 + 低波动：牛市惯性仍在，但追高性价比差"
+    if m["cape"] >= 38 and m["trend_up"] and m["vix"] < 22:
+        return "高估值 + 趋势向上：定投应放缓但不宜全停，警惕回调放大"
     if not m["trend_up"] and m["vix"] >= 25:
         return "风险释放/风险关闭：跌破长期趋势且波动抬升"
+    if m["cape"] < 25 and m["trend_up"]:
+        return "估值便宜 + 趋势向上：可加大定投积累"
+    if m["cape"] < 30 and m["vix"] < 20:
+        return "估值合理 + 低波动：维持正常定投节奏"
     if m["trend_up"] and m["trend_strong"] and m["vix"] < 20:
         return "趋势健康、波动平稳"
     return "中性/分歧状态：需要等待趋势、波动或估值给出更清晰信号"
@@ -181,8 +225,8 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     spy_daily_return_pct = None
     qqq_daily_return_pct = None
     if prev_row is not None:
-        spy_daily_return_pct = round((float(row["spy_close"]) / float(prev_row["spy_close"]) - 1) * 100, 2)
-        qqq_daily_return_pct = round((float(row["qqq_close"]) / float(prev_row["qqq_close"]) - 1) * 100, 2)
+        spy_daily_return_pct = (float(row["spy_close"]) / float(prev_row["spy_close"]) - 1) * 100
+        qqq_daily_return_pct = (float(row["qqq_close"]) / float(prev_row["qqq_close"]) - 1) * 100
 
     cfg: Optional[Dict[str, Any]] = None
     if args.portfolio_config:
@@ -204,11 +248,25 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
         model_cash_pct = float(model_run["result"]["latest_signal"]["cash_pct"])
 
     dec = bt.apply_cash_reservoir_policy(bt.decide(row), row, model_cash_pct)
+    index_snapshots: Dict[str, Dict[str, Any]] = {}
+    try:
+        index_snapshots["sp500"] = latest_index_snapshot(bt, "^GSPC", end, args)
+        index_snapshots["nasdaq"] = latest_index_snapshot(bt, "^IXIC", end, args)
+    except Exception as exc:
+        index_snapshots["error"] = {"message": str(exc)}
 
     market = {
         "latest_market_date": str(row.name.date()),
         "spy_close": round(float(row["spy_close"]), 2),
         "qqq_close": round(float(row["qqq_close"]), 2),
+        "sp500_index_date": index_snapshots.get("sp500", {}).get("date"),
+        "sp500_index_close": index_snapshots.get("sp500", {}).get("close"),
+        "sp500_index_daily_return_pct": index_snapshots.get("sp500", {}).get("daily_return_pct"),
+        "nasdaq_index_date": index_snapshots.get("nasdaq", {}).get("date"),
+        "nasdaq_index_close": index_snapshots.get("nasdaq", {}).get("close"),
+        "nasdaq_index_daily_return_pct": index_snapshots.get("nasdaq", {}).get("daily_return_pct"),
+        "index_quote_source": "yahoo_chart_adjusted",
+        "index_quote_error": index_snapshots.get("error", {}).get("message"),
         "spy_sma50": round(float(row["spy_sma50"]), 2),
         "spy_sma200": round(float(row["spy_sma200"]), 2),
         "spy_vs_sma200_pct": round((float(row["spy_close"]) / float(row["spy_sma200"]) - 1) * 100, 2),
@@ -368,6 +426,13 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     used_obs = df.attrs.get("latest_used_cape_observation_month", "")
     used_avail = df.attrs.get("latest_used_cape_available_at", "")
 
+    price_return_only = bool(df.attrs.get("price_return_only"))
+
+    # Resolve the runtime ETF pool: the CLI default is None, in which case
+    # we fall back to the historical "SPY,QQQ" pair. The first two tickers
+    # are passed to `decide()`; the rest are recorded for the dashboard.
+    etf_pool = [s.strip().upper() for s in (args.etf_pool or "SPY,QQQ").split(",") if s.strip()]
+
     return {
         "meta": {
             "generated_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -387,7 +452,24 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "latest_used_cape_observation_month": used_obs,
             "latest_used_cape_available_at": used_avail,
             "adjusted_for_dividends": bool(adj),
-            "price_return_only": bool(df.attrs.get("price_return_only")),
+            "price_return_only": price_return_only,
+            # Runtime ETF pool. The dashboard reads this to populate the
+            # Settings page. The first two entries are what `decide()`
+            # actually uses; additional entries are placeholder slots the
+            # UI displays but the rules engine ignores.
+            "etf_pool": etf_pool,
+            # When the underlying OHLCV is price-return-only (Nasdaq fallback or
+            # any provider that did not apply a dividend adjustment), surface
+            # an explicit warning string the Markdown report and the cron
+            # push shell can render as a banner. The dashboard also reads
+            # this field to display a yellow chip on the settings page.
+            "price_return_warning": (
+                "本运行使用未做分红调整的 price-return 数据；长期总收益数字被低估，"
+                "仅供相对比较，不可作为实际美股 ETF 总收益预期。请用 "
+                "`--price-source yahoo_chart_adjusted|tiingo_adjusted|alpha_vantage_adjusted` 重新生成。"
+                if price_return_only
+                else None
+            ),
         },
         "market": market,
         "diagnosis": {
@@ -445,6 +527,175 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# LLM Copilot Hook (optional — must never fail the main report)
+# ---------------------------------------------------------------------------
+
+
+def _run_llm_copilot_hook(
+    payload: Dict[str, Any],
+    args: argparse.Namespace,
+) -> None:
+    """在主报告生成后调 LLM 副驾驶。失败静默，不影响主推送。
+
+    依赖：``skill_dir/llm/`` 子包（已经随本 skill 一起发布）。
+    """
+    skill_dir = Path(args.skill_dir).expanduser().resolve()
+    if str(skill_dir) not in sys.path:
+        sys.path.insert(0, str(skill_dir))
+
+    from llm.advisor import (
+        explain_decision,
+        render_strategy_review_markdown,
+        review_signal,
+        review_with_tools_ex,
+    )
+    from llm.schema import WeeklyAdvice
+    from llm.strategies import get_strategy, list_strategies
+
+    advice = WeeklyAdvice.from_payload_dict(payload)
+    plans = [p.strip() for p in args.llm_plans.split(",") if p.strip()]
+
+    if "review" in plans:
+        advice.llm_review = review_signal(advice)
+    if "explain" in plans:
+        advice.llm_explanation = explain_decision(advice)
+
+    output_dir = Path(args.output_dir).expanduser().resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 写独立 md 文件（永远写）
+    if advice.llm_review is not None and advice.llm_review.enabled:
+        review_md = _render_llm_review_md(advice)
+        (output_dir / "llm_review.md").write_text(review_md, encoding="utf-8")
+        logger.info("[llm-copilot] wrote llm_review.md")
+    if advice.llm_explanation is not None and advice.llm_explanation.enabled:
+        explanation_md = _render_llm_explanation_md(advice)
+        (output_dir / "llm_explanation.md").write_text(explanation_md, encoding="utf-8")
+        logger.info("[llm-copilot] wrote llm_explanation.md")
+
+    # 写合并 JSON（默认开启；--no-llm-rewrite 时跳过）
+    if not args.no_llm_rewrite:
+        merged = dict(payload)
+        if advice.llm_review is not None:
+            merged["llm_review"] = advice.llm_review.__dict__
+        if advice.llm_explanation is not None:
+            merged["llm_explanation"] = advice.llm_explanation.__dict__
+        (output_dir / "current_market_advice.json").write_text(
+            json.dumps(merged, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    # v2 — 工具化副驾驶审查（optional）
+    if getattr(args, "llm_strategy", "none") and args.llm_strategy != "none":
+        spec = get_strategy(args.llm_strategy)
+        if spec is None:
+            logger.warning(
+                "[llm-copilot-v2] unknown strategy: %s (available: %s)",
+                args.llm_strategy, ", ".join(list_strategies()) or "none",
+            )
+        else:
+            budget = max(0, int(getattr(args, "llm_tool_budget", 5)))
+            logger.info(
+                "[llm-copilot-v2] strategy=%s tool_budget=%d",
+                args.llm_strategy, budget,
+            )
+            v2_review, tool_log = review_with_tools_ex(
+                advice,
+                strategy_name=args.llm_strategy,
+                tool_budget=budget,
+                enable_tools=(budget > 0),
+            )
+            v2_md = render_strategy_review_markdown(
+                review=v2_review,
+                advice=advice,
+                strategy_name=args.llm_strategy,
+                tool_log=tool_log,
+            )
+            (output_dir / "llm_strategy_review.md").write_text(v2_md, encoding="utf-8")
+            logger.info(
+                "[llm-copilot-v2] wrote llm_strategy_review.md (tool_calls=%d)",
+                len(tool_log),
+            )
+            # 合并进 advice JSON
+            if not args.no_llm_rewrite:
+                merged_path = output_dir / "current_market_advice.json"
+                if merged_path.exists():
+                    m2 = json.loads(merged_path.read_text(encoding="utf-8"))
+                else:
+                    m2 = dict(payload)
+                _spec = get_strategy(args.llm_strategy)
+                m2["llm_strategy_review"] = {
+                    "strategy": args.llm_strategy,
+                    "displayName": _spec.display_name if _spec else args.llm_strategy,
+                    "review": v2_review.__dict__,
+                    "toolCalls": tool_log,
+                }
+                merged_path.write_text(
+                    json.dumps(m2, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        logger.info("[llm-copilot] merged llm fields into current_market_advice.json")
+
+
+def _render_llm_review_md(advice: "WeeklyAdvice") -> str:
+    """把 LLMReview 转成推送副标题 markdown（与 llm_copilot.py 同步）。"""
+    from llm.advisor import fallback_review_text
+
+    review = advice.llm_review
+    lines = ["## LLM 副驾驶审查", ""]
+    if review.error:
+        lines += [
+            f"> ⚠️ LLM 审查失败：{review.error}",
+            "",
+            f"> {fallback_review_text(advice)}",
+            "",
+        ]
+        return "\n".join(lines)
+    if review.verdict:
+        lines.append(f"**{review.verdict}**")
+        lines.append("")
+    agreement_label = {
+        "agree": "🟢 同意",
+        "caution": "🟡 谨慎同意",
+        "disagree": "🔴 不同意",
+    }.get(review.agreement or "", "🟡 谨慎同意")
+    lines.append(f"立场：{agreement_label}")
+    lines.append("")
+    if review.risks_blindspots:
+        lines.append("**风险/盲点：**")
+        for r in review.risks_blindspots:
+            lines.append(f"- {r}")
+        lines.append("")
+    if review.reminder:
+        lines.append(f"> 💡 {review.reminder}")
+        lines.append("")
+    lines.append(
+        f"<sub>模型：{review.model} · 入 {review.input_tokens} / 出 {review.output_tokens} tokens</sub>"
+    )
+    return "\n".join(lines)
+
+
+def _render_llm_explanation_md(advice: "WeeklyAdvice") -> str:
+    """把 LLMExplanation 转成推送副标题 markdown。"""
+    expl = advice.llm_explanation
+    lines = ["## 为什么要这样建议（人话版）", ""]
+    if expl.error:
+        lines += [
+            f"> ⚠️ LLM 解释失败：{expl.error}",
+            "",
+            f"> 系统原文：{advice.diagnosis.rule_reason}",
+            "",
+        ]
+        return "\n".join(lines)
+    lines += [
+        expl.explanation or "",
+        "",
+        f"<sub>模型：{expl.model} · 入 {expl.input_tokens} / 出 {expl.output_tokens} tokens</sub>",
+    ]
+    return "\n".join(lines)
+
+
 def write_report(payload: Dict[str, Any], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "current_market_advice.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -463,6 +714,18 @@ def write_report(payload: Dict[str, Any], output_dir: Path) -> None:
         f"生成时间：{payload['meta']['generated_at']}",
         f"最新市场交易日：{m['latest_market_date']}",
         "",
+    ]
+    price_warning = payload.get("meta", {}).get("price_return_warning")
+    if price_warning:
+        # Prominent banner at the very top of the report so any downstream
+        # consumer (cron push shell, dashboard) sees the data caveat before
+        # the headline numbers.
+        lines += [
+            "> ⚠️ **数据警示**：本期建议基于 price-return 数据，未做分红调整。",
+            f"> {price_warning}",
+            "",
+        ]
+    lines += [
         "## 一句话结论",
         f"{payload['diagnosis']['summary']}。操作标签：**{d['action_label']}**。",
         "",
@@ -530,7 +793,11 @@ def main() -> None:
     parser.add_argument("--initial-capital", type=float, default=100_000.0, help="Initial capital for model cash-reservoir simulation")
     parser.add_argument("--transaction-cost", type=float, default=0.0015)
     parser.add_argument("--cape-lag-bdays", type=int, default=10, help="Business-day availability lag applied to monthly CAPE observations")
-    parser.add_argument("--price-source", choices=sorted(load_backtest_module(default_skill_dir).PRICE_SOURCES), default="nasdaq_price_return")
+    # D4: `--price-source` no longer imports the backtest module at
+    # argparse-default evaluation time. The list of valid choices is
+    # materialised lazily inside `main()` so the parser can be constructed
+    # before we touch any heavy module paths.
+    parser.add_argument("--price-source", default="nasdaq_price_return", help="One of: nasdaq_price_return, yahoo_chart_adjusted, tiingo_adjusted, alpha_vantage_adjusted")
     parser.add_argument("--cape-source", choices=["yale_shiller", "multpl"], default="yale_shiller")
     parser.add_argument("--allow-price-return-fallback", action="store_true")
     parser.add_argument("--require-adjusted", action="store_true", help="Fail if actual data source is price-return-only")
@@ -540,16 +807,86 @@ def main() -> None:
     parser.add_argument("--cape-vintage-path", default=None, help="Path to CAPE vintage CSV with available_at constraints")
     parser.add_argument("--no-model-cash-reservoir", dest="model_cash_reservoir", action="store_false", help="Disable simulated cash-reservoir adjustment in request-time advice")
     parser.set_defaults(model_cash_reservoir=True)
-    parser.add_argument("--trim-state-file", default=str(default_skill_dir / "references" / "cron_run" / ".trim_state.json"), help="Persistent state used to avoid repeated monthly trim advice. Default lives inside the skill so it travels with the repo; the legacy ~/.hermes/us_etf_trim_state.json path still works as a symlink.")
+    parser.add_argument(
+        "--trim-state-file",
+        default=str(Path("~/.hermes/state/us_etf_trim_state.json").expanduser()),
+        help="持久化的减仓去重状态。默认放在 ~/.hermes/state/ 以免污染 "
+             "skill repo。如果旧路径（~/.hermes/us_etf_trim_state.json 或 "
+             "references/cron_run/.trim_state.json）下还有文件，请先跑 "
+             "`scripts/migrate_trim_state.py` 一次性迁移。",
+    )
     parser.add_argument("--record-trim-execution", action="store_true", help="Record the current QQQ trim signal as executed in the trim state file")
     parser.add_argument("--recent-days", type=int, default=3, help="Number of recent trading days to include in the advice report")
+    parser.add_argument(
+        "--etf-pool",
+        default=None,
+        help=(
+            "Comma-separated ETF tickers that form the runtime pool, e.g. "
+            "'SPY,QQQ,VTI,VOO'. Default is 'SPY,QQQ'. The first two are "
+            "consumed by `decide()`; additional tickers are recorded in "
+            "`meta.etf_pool` and surfaced in the dashboard for future "
+            "extension. Pool changes are *advisory only* — they do not "
+            "alter the production decision rules."
+        ),
+    )
     parser.add_argument("--output-dir", default=str(default_skill_dir / "references" / "current_run"))
+    # --- LLM copilot (optional) ---------------------------------------------
+    parser.add_argument(
+        "--llm-copilot",
+        action="store_true",
+        help=(
+            "在 write_report 之后跑 LLM 副驾驶（方案 A 审查 + 方案 B 解释）。"
+            "需要 LLM_API_KEY 或 LLM_BACKEND=mock；失败时不影响主报告。"
+        ),
+    )
+    parser.add_argument(
+        "--llm-plans",
+        default="review,explain",
+        help="LLM 副驾驶要跑的方案，逗号分隔（review,explain）。仅 --llm-copilot 时生效。",
+    )
+    parser.add_argument(
+        "--no-llm-rewrite",
+        action="store_true",
+        help="LLM 副驾驶产物只写到独立 md/json 文件，不合并进 current_market_advice.json。",
+    )
+    parser.add_argument(
+        "--llm-strategy",
+        default="none",
+        help=(
+            "v2 工具化副驾驶的策略名（strategies/*.yaml 的 name 字段）。"
+            "默认 'none' = 不跑 v2。"
+        ),
+    )
+    parser.add_argument(
+        "--llm-tool-budget",
+        type=int,
+        default=5,
+        help="v2 工具调用预算（默认 5；0 = 关闭工具，走 v1 fallback）",
+    )
     args = parser.parse_args()
+    # D4: validate `--price-source` against the canonical list now that
+    # the backtest module is loaded for the actual run. argparse no
+    # longer needs to know the choices at parse time.
+    _bt_for_choices = load_backtest_module(Path(args.skill_dir).expanduser().resolve())
+    valid_sources = sorted(_bt_for_choices.PRICE_SOURCES)
+    if args.price_source not in valid_sources:
+        parser.error(
+            f"invalid --price-source {args.price_source!r}; choose one of: "
+            f"{', '.join(valid_sources)}"
+        )
     payload = build_payload(args)
     recorded_trim_execution = False
     if args.record_trim_execution:
         recorded_trim_execution = record_trim_execution(Path(args.trim_state_file).expanduser(), payload)
     write_report(payload, Path(args.output_dir).expanduser())
+
+    # LLM 副驾驶（可选）— 在主报告生成后跑，失败不影响主流程
+    if args.llm_copilot:
+        try:
+            _run_llm_copilot_hook(payload, args)
+        except Exception as exc:  # noqa: BLE001 - 副驾驶失败必须静默
+            logger.warning("[llm-copilot] hook failed: %s", exc)
+
     print(json.dumps({
         "generated_at": payload["meta"]["generated_at"],
         "latest_market_date": payload["market"]["latest_market_date"],

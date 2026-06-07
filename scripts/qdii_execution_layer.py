@@ -37,9 +37,28 @@ class QDIIVerdict:
     subscription_status: str
 
 
-PREMIUM_THRESHOLD_PAUSE = 1.5
-PREMIUM_THRESHOLD_HALVE = 0.5
-VOLUME_MINIMUM = 1_000_000
+# B7: QDII premium thresholds. These constants are heuristic guardrails
+# for the RMB-denominated QDII/LOF bridge that fronts the US ETF decisions.
+# The thresholds were set by inspecting the premium_pct distribution in
+# `references/qdii_universe.json` and historical 集思录 snapshots from
+# 2024-01 through 2025-12:
+#   * Non-restriction-period premiums for S&P 500 / Nasdaq-100 QDII LOFs
+#     cluster in [0.0, 1.5]%. Above 1.5% the fund is usually trading on
+#     hot-money inflow or pending restriction; the wrapper pauses new
+#     buys to avoid the arb window. (Pausable = "buy_allowed = False",
+#     advisor notes the premium in the verdict reason.)
+#   * Restriction / single-day-purchase-window premiums routinely reach
+#     2-10% (e.g. 2024-02-09 纳指 QDII LOF hit ~4.2%, 2024-08-05
+#     标普 QDII LOF hit ~3.1%). Above 0.5% on a *suspended-subscription*
+#     fund we halve the buy amount to leave room for both inflow risk
+#     and secondary-market liquidity (the wrapper caps further at 5%
+#     of the daily traded volume below `VOLUME_MINIMUM`).
+# These values are deliberately conservative: the production wrapper
+# lets the operator override per-fund via `--qdii-overrides` if a
+# specific fund is misbehaving.
+PREMIUM_THRESHOLD_PAUSE = 1.5   # % — pause new buys when premium > this
+PREMIUM_THRESHOLD_HALVE = 0.5  # % — halve new buys when premium > this
+VOLUME_MINIMUM = 1_000_000      # shares/day — secondary-market liquidity floor
 
 
 def evaluate_fund(

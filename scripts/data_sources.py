@@ -147,6 +147,20 @@ def fetch_nasdaq_ohlcv(symbol: str, start: str, end: str, assetclass: str = "etf
 
 
 def fetch_yahoo_chart_adjusted_ohlcv(symbol: str, start: str, end: str) -> Tuple[pd.DataFrame, bytes]:
+    """Fetch dividend- and split-adjusted OHLCV from the Yahoo Finance chart API.
+
+    Approximation caveat (B6): Yahoo returns the *raw* (un-adjusted) open/
+    high/low/volume alongside a fully-adjusted close. We back out the
+    adjustment factor as `adj_close / close_raw` and apply it to the raw
+    open/high/low so they line up with the adjusted close. The high/low
+    values can therefore be slightly off from a true vendor-native adjusted
+    high/low — particularly on large-dividend ex-dates where the per-day
+    adjustment factor compresses the daily range. For DCA weekly budgeting
+    and 21/63/252-day returns this is well within tolerance; downstream
+    features that depend on intraday range (e.g. "true range" or
+    "intraday volatility") should use Tiingo or Alpha Vantage adjusted
+    series instead.
+    """
     start_ts = int(pd.Timestamp(start, tz="UTC").timestamp())
     end_ts = int((pd.Timestamp(end, tz="UTC") + pd.Timedelta(days=1)).timestamp())
     url = (
@@ -189,6 +203,17 @@ def fetch_yahoo_chart_adjusted_ohlcv(symbol: str, start: str, end: str) -> Tuple
 
 
 def fetch_alpha_vantage_adjusted_ohlcv(symbol: str, start: str, end: str, api_key: str) -> Tuple[pd.DataFrame, bytes]:
+    """Fetch Alpha Vantage TIME_SERIES_DAILY_ADJUSTED for a US ETF/equity.
+
+    Approximation caveat (B6): the AV adjusted close is the ground truth,
+    but the adjusted open/high/low are derived by multiplying the raw
+    values by the same `adj_close / close` factor used elsewhere. This is
+    the standard adjustment idiom for AV's response shape. As with Yahoo,
+    on large-dividend ex-dates the synthesized adjusted high/low can
+    deviate from a true adjusted high/low by a few basis points of the
+    daily range. Acceptable for DCA / weekly return work; not suitable for
+    high-frequency intraday features.
+    """
     if not api_key:
         raise RuntimeError("alpha_vantage_adjusted requires ALPHAVANTAGE_API_KEY or --alpha-vantage-api-key")
     url = (

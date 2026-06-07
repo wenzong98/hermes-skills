@@ -1,0 +1,16 @@
+{
+  "status": "ok",
+  "date": "2026-06-06",
+  "last_market_date": "2026-06-05",
+  "rows": 2118,
+  "signal": {
+    "date": "2026-06-05",
+    "regime": "very_expensive",
+    "multiplier": 0.75,
+    "target_spy_weight": 0.45,
+    "target_qqq_weight": 0.55,
+    "vix": 21.51,
+    "factor_signal": 0.972030907533971,
+    "reason": "CAPE=41.0:very_expensive; qqq_mild_strength_satellite_qqq_tilt"
+  }
+}

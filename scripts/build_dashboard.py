@@ -424,9 +424,10 @@ def _macro_feeds_block(advice: Dict[str, Any]) -> Dict[str, Any]:
             "available": bool(global_news or out.get("calendar")),
             "globalNews": global_news,
             "calendar": _trim(out.get("calendar") or [], key="event", translations=cal_translations),
-            # 保留旧字段为空数组, 兼容旧版前端
-            "rss": [],
-            "gdelt": [],
+            # RSS / GDELT 字段: 直接传 trimmed items, 让前端按列展示
+            # (过滤后的子集, 与 globalNews 一致, 避免旧字段空数组的歧义)
+            "rss": _trim(out.get("rss") or [], translations=rss_translations),
+            "gdelt": _trim(out.get("gdelt") or [], translations=gdelt_translations),
             "translated": bool(any(rss_translations) or any(cal_translations) or any(gdelt_translations)),
             "fetchedAt": dt.datetime.now().isoformat(timespec="seconds"),
         }

@@ -957,6 +957,8 @@ button { font-family: var(--font-cn); cursor: pointer; }
 .chart { width: 100%; height: 320px; min-width: 0; overflow: hidden; }
 .chart canvas { max-width: 100%; }
 .chart.tall { height: 380px; }
+/* Full-width panel: 横跨整个 row, 用于强调"信号机制"等核心图表 */
+.panel-wide { grid-column: 1 / -1; }
 /* 性能图表网格: 左侧权益曲线 + 右侧 2 个堆叠图, 高度统一 */
 .performance-grid { grid-template-rows: 1fr; }
 .performance-grid .panel { display: flex; flex-direction: column; }
@@ -1799,9 +1801,9 @@ button { font-family: var(--font-cn); cursor: pointer; }
           <div class="panel"><h3><span class="bar"></span>滚动 63 日收益 / 夏普</h3><div id="bt-rolling" class="chart"></div></div>
           <div class="panel"><h3><span class="bar"></span>月度收益热力图</h3><div id="bt-heatmap" class="chart"></div></div>
         </div>
+        <div class="panel panel-wide"><h3><span class="bar"></span>时间策略：估值档 → 定投乘数（CAPE 驱动）</h3><div id="bt-dist" class="chart tall"></div></div>
         <div class="row">
           <div class="panel"><h3><span class="bar"></span>年度收益</h3><div id="bt-annual" class="tbl-container"></div></div>
-          <div class="panel"><h3><span class="bar"></span>时间策略：估值档 → 定投乘数（CAPE 驱动）</h3><div id="bt-dist" class="chart"></div></div>
         </div>
       </div>
     </section>
@@ -2636,27 +2638,37 @@ window.__DASHBOARD__ = __DATA_JSON__;
     // 绑定 filter 按钮
     setTimeout(function() {
       var btns = document.querySelectorAll('#' + calFilterId + ' .mf-filter-btn');
+      // 锚定到 filter 所在的 .mf-col（而不是 :last-child，避免误覆盖全球要闻列）
+      var calCol = root.querySelector('.mf-col:has(#' + calFilterId + ')');
       btns.forEach(function(btn) {
         btn.addEventListener("click", function() {
           btns.forEach(function(b) { b.classList.remove("active"); });
           btn.classList.add("active");
           // BUG FIX: 同步更新闭包变量 (而不是 DOM dataset — 首次渲染时 DOM 还没注入)
           calCurrentMode = btn.dataset.mode;
-          // 重新渲染
-          var colItems = root.querySelector('.mf-col:last-child .mf-col-items');
-          if (colItems) {
-            var newItems = calCurrentMode === "high"
-              ? calendarAll.filter(function(x) { return (x.importance || 0) >= 3; })
-              : calendarAll;
-            var newHtml = '';
-            if (!newItems || !newItems.length) {
-              newHtml = '<div class="mf-item"><span class="mf-meta">（无数据）</span></div>';
+          // 重新渲染财经日历列（用与初次渲染同一份逻辑，med/high/all 三分支对齐）
+          if (calCol) {
+            var mode = calCurrentMode;
+            var filtered;
+            if (mode === "high") {
+              filtered = calendarAll.filter(function(x) { return (x.importance || 0) >= 3; });
+            } else if (mode === "med") {
+              filtered = calendarAll.filter(function(x) { return (x.importance || 0) === 2; });
             } else {
-              for (var i = 0; i < newItems.length; i++) {
-                newHtml += calFormatter(newItems[i]);
-              }
+              filtered = calendarAll;
             }
-            colItems.innerHTML = newHtml;
+            var itemsEl = calCol.querySelector('.mf-col-items');
+            if (itemsEl) {
+              var newHtml = '';
+              if (!filtered || !filtered.length) {
+                newHtml = '<div class="mf-item"><span class="mf-meta">（无数据）</span></div>';
+              } else {
+                for (var i = 0; i < filtered.length; i++) {
+                  newHtml += calFormatter(filtered[i]);
+                }
+              }
+              itemsEl.innerHTML = newHtml;
+            }
           }
         });
       });
