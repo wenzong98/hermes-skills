@@ -66,6 +66,51 @@
   --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* =============== 白天主题（覆盖 :root 变量） =============== */
+[data-theme="light"] {
+  --bg: #faf8f3;
+  --bg-subtle: #f3efe6;
+  --panel: #ffffff;
+  --panel-elev: #f7f4ec;
+  --panel-elev-solid: #efebe1;
+  --glass: rgba(255, 255, 255, 0.85);
+  --border: rgba(28, 28, 26, 0.12);
+  --border-subtle: rgba(28, 28, 26, 0.06);
+  --border-active: rgba(217, 119, 87, 0.45);
+
+  --text-primary: #1c1c1a;
+  --text-secondary: #5a5851;
+  --text-muted: #8a887e;
+
+  --orange: #c75a36;
+  --orange-dim: rgba(199, 90, 54, 0.10);
+  --orange-glow: rgba(199, 90, 54, 0.04);
+  --blue: #4a7ba8;
+  --blue-dim: rgba(74, 123, 168, 0.10);
+  --green: #5e7240;
+  --green-dim: rgba(94, 114, 64, 0.10);
+
+  --positive: #5e7240;
+  --positive-dim: rgba(94, 114, 64, 0.10);
+  --negative: #c75a36;
+  --negative-dim: rgba(199, 90, 54, 0.10);
+  --warning: #b48a2f;
+  --warning-dim: rgba(180, 138, 47, 0.10);
+  --info: #4a7ba8;
+  --info-dim: rgba(74, 123, 168, 0.10);
+  --neutral: #5a5851;
+  --buy: #5e7240;
+  --sell: #c75a36;
+  --hold: #5a5851;
+  --cash: #4a7ba8;
+
+  --shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-hover: 0 2px 4px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.10);
+}
+/* 白天主题下：ECharts 文本色要提亮，否则图例/坐标轴会看不清 */
+[data-theme="light"] .chart { color: #5a5851; }
+[data-theme="light"] .chart canvas { filter: none; }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 html, body {
@@ -106,11 +151,24 @@ button { font-family: var(--font-cn); cursor: pointer; }
 .anim-in { animation: fadeInUp 0.35s ease both; }
 .anim-d1 { animation-delay: 0.04s; }
 .anim-d2 { animation-delay: 0.08s; }
+.anim-d2b { animation-delay: 0.10s; }
 .anim-d3 { animation-delay: 0.12s; }
+.anim-d3b { animation-delay: 0.14s; }
 .anim-d4 { animation-delay: 0.16s; }
 .anim-d5 { animation-delay: 0.20s; }
 .anim-d6 { animation-delay: 0.24s; }
 .anim-d7 { animation-delay: 0.28s; }
+
+/* H1: 显式控制可见性 — 不要用 HTML `hidden` 属性 + animation both 组合
+   （display:none 状态下的元素不会触发 CSS animation，移除 hidden 后
+    Safari/Chrome 行为不一致，元素常停留在 opacity:0 不可见）。
+   用 `.is-collapsed` 类显式隐藏，`.is-shown` 类强制显示 + animation 重启。
+   is-shown 强制 display: grid !important，确保 inline style 缺失时仍可见。 */
+.is-collapsed { display: none !important; }
+.is-shown { display: grid !important; animation-name: fadeInUp !important; animation-duration: 0.35s !important; animation-fill-mode: both !important; }
+/* 同样的可见性护栏给 llm-copilot / macro-feeds 单独的 display 模式 */
+#llm-copilot.is-shown { display: grid !important; }
+#macro-feeds.is-shown { display: grid !important; }
 
 /* =============== Layout =============== */
 .app {
@@ -127,29 +185,10 @@ button { font-family: var(--font-cn); cursor: pointer; }
   flex-direction: column;
   position: sticky;
   top: 0;
-  height: calc(100vh - 110px);
+  /* 撑满整个视口高度, 配合 .app align-items:stretch 让 nav 在小屏也能占满 */
+  height: 100vh;
+  max-height: 100vh;
   overflow-y: auto;
-}
-.sidebar-brand {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-.sidebar-brand .logo-mark {
-  width: 32px; height: 32px;
-  border-radius: 8px;
-  background: var(--orange);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 15px; color: var(--bg);
-  font-family: var(--font-mono);
-  flex-shrink: 0;
-}
-.sidebar-brand .brand-title {
-  font-family: var(--font-heading);
-  font-size: 14px; font-weight: 600; color: var(--text-primary);
-  letter-spacing: 0.3px;
-}
-.sidebar-brand .brand-sub {
-  font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
 }
 .sidebar h2 {
   font-family: var(--font-heading);
@@ -187,6 +226,26 @@ button { font-family: var(--font-cn); cursor: pointer; }
   padding: 1px 6px; border-radius: 3px;
   letter-spacing: 0.5px;
 }
+.sidebar-subnav {
+  display: grid;
+  gap: 2px;
+  padding: 4px 12px 10px 34px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.sidebar-subnav a {
+  padding: 6px 10px;
+  border-left: 1px solid var(--border);
+  border-radius: 0 5px 5px 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.sidebar-subnav a:hover,
+.sidebar-subnav a.active {
+  color: var(--text-primary);
+  border-left-color: var(--orange);
+  background: var(--orange-glow);
+}
 .sidebar-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border-subtle);
@@ -197,7 +256,7 @@ button { font-family: var(--font-cn); cursor: pointer; }
 .main {
   padding: 24px 28px 40px;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* =============== Status Bar =============== */
@@ -208,6 +267,56 @@ button { font-family: var(--font-cn); cursor: pointer; }
   border-bottom: 1px solid var(--border);
   font-size: 12px;
 }
+
+/* =============== 主题切换按钮 =============== */
+.theme-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel-elev);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition);
+  user-select: none;
+}
+.theme-toggle:hover {
+  border-color: var(--orange);
+  color: var(--text-primary);
+}
+.theme-toggle .tt-icon {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--orange);
+  position: relative;
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+.theme-toggle .tt-icon::after {
+  content: '';
+  position: absolute;
+  top: -3px; right: -3px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--panel-elev);
+  transition: background var(--transition);
+}
+/* 暗黑主题显示月亮（左半亮） */
+[data-theme="dark"] .theme-toggle .tt-icon::after,
+:root .theme-toggle .tt-icon::after {
+  /* 默认（未设置 data-theme）即暗黑：月亮 */
+  background: var(--panel-elev);
+}
+/* 白天主题显示太阳（实心） */
+[data-theme="light"] .theme-toggle .tt-icon {
+  background: var(--warning);
+  box-shadow: 0 0 0 2px var(--warning-dim);
+}
+[data-theme="light"] .theme-toggle .tt-icon::after {
+  background: transparent;
+}
+.theme-toggle .tt-label { font-weight: 500; }
 .statusbar .brand { display: flex; align-items: center; gap: 8px; margin-right: 8px; }
 .statusbar .logo {
   width: 24px; height: 24px; border-radius: 5px;
@@ -256,12 +365,78 @@ button { font-family: var(--font-cn); cursor: pointer; }
   padding: 18px 20px;
   box-shadow: var(--shadow);
   transition: border-color var(--transition), box-shadow var(--transition);
+  min-width: 0;
 }
 .panel:hover {
   border-color: rgba(176, 174, 165, 0.22);
   box-shadow: var(--shadow-hover);
 }
-.panel + .panel { margin-top: 14px; }
+.dashboard-section + .dashboard-section { margin-top: 34px; }
+.dashboard-section > * + * { margin-top: 14px; }
+.dashboard-section { scroll-margin-top: 78px; }
+.dashboard-tabs {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; gap: 6px; overflow-x: auto;
+  margin: -24px -28px 26px;
+  padding: 10px 28px;
+  background: rgba(20, 20, 19, 0.92);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+.dashboard-tabs a {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: var(--panel);
+  font-family: var(--font-heading); font-size: 11px; font-weight: 500;
+}
+.dashboard-tabs a .n { color: var(--text-muted); font-family: var(--font-mono); font-size: 9px; }
+.dashboard-tabs a:hover,
+.dashboard-tabs a.active {
+  color: var(--orange);
+  border-color: var(--border-active);
+  background: var(--orange-dim);
+}
+.page > .panel + .panel,
+.page > .panel + .row,
+.page > .row + .panel,
+.page > .row + .row { margin-top: 14px; }
+.section-heading {
+  display: flex; align-items: end; justify-content: space-between; gap: 18px;
+  padding: 0 2px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.section-heading .eyebrow {
+  font-family: var(--font-mono); font-size: 10px; color: var(--orange);
+  text-transform: uppercase; letter-spacing: 1.4px; margin-bottom: 4px;
+}
+.section-heading h2 {
+  font-family: var(--font-heading); font-size: 20px; line-height: 1.2;
+  color: var(--text-primary); font-weight: 600;
+}
+.section-heading p {
+  max-width: 540px; color: var(--text-muted); font-size: 11px;
+  text-align: right; line-height: 1.55;
+}
+.decision-heading-tools {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  flex-wrap: wrap;
+}
+.decision-clock,
+.decision-date-label {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 30px; padding: 5px 9px;
+  border: 1px solid var(--border-subtle); border-radius: 6px;
+  background: var(--panel); color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: 10px;
+}
+.decision-date-label select {
+  border: 0; outline: 0; color: var(--text-primary); background: transparent;
+  font: inherit; cursor: pointer; color-scheme: dark;
+}
 .panel h3 {
   font-family: var(--font-heading);
   font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
@@ -287,7 +462,7 @@ button { font-family: var(--font-cn); cursor: pointer; }
   border-radius: var(--radius);
   padding: 14px 16px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   transition: all var(--transition);
 }
 .kpi::after {
@@ -314,7 +489,15 @@ button { font-family: var(--font-cn); cursor: pointer; }
 .kpi .delta.pos { color: var(--positive); }
 .kpi .delta.neg { color: var(--negative); }
 .kpi .delta.neutral { color: var(--text-secondary); }
-.kpi[title] { cursor: help; }
+.kpi .info-tip {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.kpi:has(.info-tip.is-open) {
+  z-index: 30;
+  border-color: var(--border-active);
+}
 .kpi.stale { border-color: rgba(212,168,83,0.35); }
 .kpi.stale::before {
   content: '过期';
@@ -325,7 +508,7 @@ button { font-family: var(--font-cn); cursor: pointer; }
 
 /* =============== Decision Card =============== */
 .decision {
-  display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center;
+  display: grid; grid-template-columns: minmax(240px, 0.8fr) minmax(360px, 1.2fr); gap: 20px; align-items: start;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -363,6 +546,7 @@ button { font-family: var(--font-cn); cursor: pointer; }
 }
 .decision .meta b { color: var(--text-primary); font-weight: 500; }
 .decision .reason { font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.6; }
+.decision .decision-detail { min-width: 0; }
 .decision .buttons { display: flex; flex-direction: column; gap: 6px; }
 .decision .buttons button {
   background: var(--panel-elev);
@@ -383,12 +567,498 @@ button { font-family: var(--font-cn); cursor: pointer; }
   font-weight: 700; border-radius: 4px; margin-left: 8px;
 }
 
+/* =============== LLM 副驾驶 (Copilot) =============== */
+.llm-copilot {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 14px;
+}
+/* v2 工具化副驾驶：内部 layout */
+.llm-copilot .lc-strategy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.llm-copilot .lc-strategy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px dashed var(--border-subtle);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.llm-copilot .lc-strategy-header .lc-strategy-name {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.llm-copilot .lc-strategy details.lc-tool-log {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.llm-copilot .lc-strategy details.lc-tool-log summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  user-select: none;
+  padding: 4px 0;
+  color: var(--orange);
+}
+.llm-copilot .lc-strategy details.lc-tool-log summary:hover {
+  color: var(--text-primary);
+}
+.llm-copilot .lc-strategy .lc-tool-row {
+  display: block;
+  margin: 4px 0;
+  padding: 6px 8px;
+  background: var(--panel-elev-solid);
+  border-left: 2px solid var(--orange);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+.llm-copilot .lc-strategy .lc-tool-row .lc-tool-name {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.llm-copilot .lc-strategy .lc-tool-row .lc-tool-preview {
+  color: var(--text-muted);
+  display: block;
+  margin-top: 2px;
+  word-break: break-all;
+}
+.llm-copilot[data-disabled="true"] { opacity: 0.55; }
+.llm-copilot .lc-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+.llm-copilot .lc-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.llm-copilot .lc-header h3 .bar {
+  display: inline-block;
+  width: 3px; height: 14px;
+  background: var(--orange);
+  border-radius: 2px;
+  margin-right: 6px;
+}
+.llm-copilot .lc-header .lc-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.llm-copilot .lc-card {
+  background: var(--panel-elev);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.llm-copilot .lc-card h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.llm-copilot .lc-card .lc-verdict {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.llm-copilot .lc-card .lc-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.llm-copilot .lc-card .lc-pill[data-tone="positive"] { background: rgba(126,176,108,0.18); color: var(--buy); }
+.llm-copilot .lc-card .lc-pill[data-tone="warning"]  { background: rgba(212,168,83,0.18); color: var(--warning); }
+.llm-copilot .lc-card .lc-pill[data-tone="critical"] { background: rgba(212,95,95,0.18); color: var(--sell); }
+.llm-copilot .lc-card .lc-pill[data-tone="neutral"]  { background: var(--panel); color: var(--text-muted); }
+.llm-copilot .lc-card ul {
+  margin: 4px 0 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.llm-copilot .lc-card ul li { margin-bottom: 2px; }
+.llm-copilot .lc-card .lc-reminder {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--panel-elev-solid);
+  border-left: 3px solid var(--orange);
+  padding: 8px 10px;
+  border-radius: 4px;
+}
+.llm-copilot .lc-card .lc-explanation {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+.llm-copilot .lc-card .lc-error {
+  font-size: 11px;
+  color: var(--warning);
+  background: rgba(212,168,83,0.1);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+}
+.llm-copilot .lc-card .lc-fallback {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.llm-copilot .lc-card .lc-tokens {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-align: right;
+  margin-top: 4px;
+}
+.llm-copilot .lc-disabled {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 20px;
+  background: var(--panel-elev);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+@media (max-width: 1100px) {
+  .llm-copilot { grid-template-columns: 1fr; }
+}
+
+/* =============== Macro Reference Feeds =============== */
+.macro-feeds {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  /* 整体高度自适应 (按内容撑开, 不再用 max-height 限制) */
+  align-items: stretch;
+}
+/* 移除 mf-col-items 的滚动条，让所有内容自然铺开 */
+.macro-feeds .mf-col-items {
+  overflow-y: visible;
+  max-height: none;
+}
+.macro-feeds .mf-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+.macro-feeds .mf-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.macro-feeds .mf-header h3 .bar {
+  display: inline-block; width: 3px; height: 14px;
+  background: var(--orange); border-radius: 2px; margin-right: 6px;
+}
+.macro-feeds .mf-header .mf-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.macro-feeds .mf-header .mf-sources {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+  font-family: var(--font-body);
+  max-width: 1000px;
+}
+.macro-feeds .mf-col {
+  background: var(--panel-elev);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* 列内独立滚动, 三列等高 */
+  min-height: 0;
+  overflow: hidden;
+}
+.macro-feeds .mf-col-items {
+  /* items 容器可滚动 */
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* 美化滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-active) transparent;
+}
+.macro-feeds .mf-col-items::-webkit-scrollbar {
+  width: 4px;
+}
+.macro-feeds .mf-col-items::-webkit-scrollbar-thumb {
+  background: var(--border-active);
+  border-radius: 2px;
+}
+.macro-feeds .mf-col h4 {
+  margin: 0 0 4px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.macro-feeds .mf-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  /* 固定高度让 3 列头对齐 (财经日历有 filter, 高度更大) */
+  min-height: 36px;
+  flex-wrap: wrap;
+}
+.macro-feeds .mf-filter {
+  display: flex;
+  gap: 4px;
+}
+.macro-feeds .mf-filter-btn {
+  background: var(--panel-elev);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  transition: all 0.15s ease;
+}
+.macro-feeds .mf-filter-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--orange);
+}
+.macro-feeds .mf-filter-btn.active {
+  background: var(--orange);
+  color: var(--bg);
+  border-color: var(--orange);
+  font-weight: 600;
+}
+.macro-feeds .mf-item {
+  font-size: 11.5px;
+  line-height: 1.5;
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--border-subtle);
+  color: var(--text-secondary);
+}
+.macro-feeds .mf-item:last-child { border-bottom: 0; }
+.macro-feeds .mf-item .mf-headline {
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 2px;
+  line-height: 1.4;
+}
+.macro-feeds .mf-item .mf-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+/* 时间标签: 小且弱化, 不抢戏 */
+.macro-feeds .mf-item .mf-time {
+  font-size: 9px;
+  opacity: 0.5;
+  display: block;
+  margin-top: 3px;
+  letter-spacing: 0.2px;
+}
+/* 国家旗标: 头部小图标 */
+.macro-feeds .mf-item .mf-country {
+  display: inline-block;
+  font-size: 13px;
+  line-height: 1;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+}
+/* 标题旁的超链接 "→" */
+.macro-feeds .mf-item .mf-link {
+  /* 超链接: 醒目橙色背景胶囊, 一眼能看见 */
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--bg);
+  background: var(--orange);
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  vertical-align: 1px;
+  transition: filter 0.15s;
+}
+.macro-feeds .mf-item .mf-link:hover {
+  filter: brightness(1.15);
+  text-decoration: none;
+  text-decoration: underline;
+}
+.macro-feeds .mf-item .mf-tone-neg { color: var(--sell); }
+.macro-feeds .mf-item .mf-tone-pos { color: var(--buy); }
+@media (max-width: 1100px) {
+  .macro-feeds { grid-template-columns: 1fr; }
+}
+
 /* =============== Charts =============== */
-.chart { width: 100%; height: 320px; }
+.chart { width: 100%; height: 320px; min-width: 0; overflow: hidden; }
+.chart canvas { max-width: 100%; }
 .chart.tall { height: 380px; }
-.chart.short { height: 240px; }
+/* 性能图表网格: 左侧权益曲线 + 右侧 2 个堆叠图, 高度统一 */
+.performance-grid { grid-template-rows: 1fr; }
+.performance-grid .panel { display: flex; flex-direction: column; }
+.performance-grid .chart { flex: 1 1 auto; min-height: 0; }
+.chart.short { flex: 1 1 auto; min-height: 0; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 1100px) { .row { grid-template-columns: 1fr; } }
+
+/* =============== Overview Balance Layout =============== */
+.overview-balance {
+  display: grid;
+  gap: 14px;
+}
+.overview-market-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.85fr) minmax(420px, 1.15fr);
+  gap: 14px;
+  align-items: stretch;
+}
+.overview-market-grid .market-snapshot {
+  grid-template-columns: 1fr;
+}
+.overview-evidence {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.evidence-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.evidence-item {
+  min-width: 0;
+  background: var(--panel-elev);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.evidence-item .label {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  font-weight: 600;
+}
+.evidence-item .value {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  font-size: 18px;
+  margin-top: 5px;
+}
+.evidence-item .value.pos { color: var(--positive); }
+.evidence-item .value.neg { color: var(--negative); }
+.evidence-item .value.neutral { color: var(--text-primary); }
+.evidence-item .sub {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 3px;
+  line-height: 1.45;
+}
+.overview-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+.overview-hero-grid .panel {
+  min-width: 0;
+}
+.signal-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+  gap: 14px;
+}
+.signal-side {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 14px;
+}
+.performance-grid {
+  display: grid;
+  /* 策略 vs 基准 权益曲线：拉宽到与整体框同宽，右侧留更窄的侧栏。 */
+  grid-template-columns: minmax(0, 1.9fr) minmax(260px, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+.performance-side {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 1180px) {
+  .overview-market-grid,
+  .overview-hero-grid,
+  .signal-layout,
+  .performance-grid { grid-template-columns: 1fr; }
+  .performance-side { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+  .macro-feeds { grid-template-columns: 1fr; }
+}
 
 /* =============== Table =============== */
 .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -555,6 +1225,101 @@ button { font-family: var(--font-cn); cursor: pointer; }
   background: var(--orange);
   border-radius: 2px;
 }
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--info);
+  background: var(--info-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+  cursor: help;
+  text-transform: none;
+  letter-spacing: 0;
+  flex: 0 0 auto;
+}
+.info-tip:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+.info-tip .tip-content {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(320px, 70vw);
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(28, 28, 26, 0.98);
+  box-shadow: var(--shadow-hover);
+  color: var(--text-secondary);
+  font-family: var(--font-cn);
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 400;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity var(--transition), transform var(--transition);
+  z-index: 20;
+}
+.info-tip.is-open .tip-content {
+  opacity: 1;
+  transform: translateY(0);
+}
+.market-snapshot {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin: -2px 0 12px;
+}
+.market-snapshot .snap {
+  background: var(--panel-elev);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.market-snapshot .snap .label {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+}
+.market-snapshot .snap .value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--text-primary);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.market-snapshot .snap .sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.market-snapshot .snap .move {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  white-space: nowrap;
+}
+.market-snapshot .snap .move.pos { color: var(--positive); }
+.market-snapshot .snap .move.neg { color: var(--negative); }
+.market-snapshot .snap .move.neutral { color: var(--text-secondary); }
 .kbd {
   font-family: var(--font-heading);
   background: var(--panel-elev);
@@ -635,7 +1400,7 @@ button { font-family: var(--font-cn); cursor: pointer; }
     padding: 8px 12px; border-right: 0;
     border-bottom: 1px solid var(--border);
   }
-  .sidebar-brand, .sidebar h2, .sidebar-footer { display: none; }
+  .sidebar h2, .sidebar-footer { display: none; }
   .sidebar nav { display: flex; gap: 4px; padding: 0; }
   .sidebar nav a {
     white-space: nowrap; padding: 7px 12px;
@@ -643,20 +1408,33 @@ button { font-family: var(--font-cn); cursor: pointer; }
     border-radius: 6px;
   }
   .sidebar nav a.active { border-bottom-color: var(--orange); border-left-color: transparent; }
+  .sidebar-subnav { display: none; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .decision { grid-template-columns: 1fr; }
-  .decision .buttons { flex-direction: row; }
+  .evidence-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .qdii-cards { grid-template-columns: 1fr; }
 }
 
 /* =============== 600px 以下：单列 + 状态栏折叠 =============== */
 @media (max-width: 600px) {
   .main { padding: 14px 12px 24px; }
-  .kpi-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .kpi { padding: 12px 10px; }
+  .kpi .value { font-size: 18px; }
+  .kpi .delta { font-size: 10px; }
+  .evidence-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .evidence-item { padding: 10px 8px; }
+  .evidence-item .label { font-size: 9px; }
+  .evidence-item .value { font-size: 15px; }
+  .evidence-item .sub { font-size: 10px; }
+  .overview-evidence { padding: 14px 12px; }
   .statusbar { padding: 8px 12px; gap: 6px; }
   .statusbar .brand .sub { display: none; }
   .statusbar #status-chips { gap: 4px; }
+  .statusbar #status-chips .chip:nth-child(n+5) { display: none; }
   .statusbar .chip { font-size: 9px; padding: 2px 6px; }
+  .statusbar > .mono.muted { display: none; }
+  .market-snapshot { grid-template-columns: 1fr; gap: 8px; }
   .row { grid-template-columns: 1fr; gap: 10px; }
   .panel { padding: 14px 12px; }
   .panel h3 { font-size: 10px; }
@@ -668,6 +1446,17 @@ button { font-family: var(--font-cn); cursor: pointer; }
   .tbl th, .tbl td { padding: 7px 8px; font-size: 12px; }
   .drawer { width: 100vw; max-width: 100vw; }
   .etf-pool-grid { grid-template-columns: 1fr 1fr; }
+  .section-heading { align-items: start; }
+  .section-heading h2 { font-size: 17px; }
+  .section-heading p { display: none; }
+  .decision-heading-tools { justify-content: flex-start; }
+  .performance-side { grid-template-columns: 1fr; }
+  .dashboard-section + .dashboard-section { margin-top: 26px; }
+  .dashboard-tabs {
+    margin: -14px -12px 22px;
+    padding: 8px 12px;
+  }
+  .dashboard-tabs a { padding: 6px 9px; font-size: 10px; }
 }
 
 /* =============== 决策卡：4 个时间戳 =============== */
@@ -734,7 +1523,8 @@ button { font-family: var(--font-cn); cursor: pointer; }
 .kpi:focus { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 /* =============== 主色（兼容旧选择器） =============== */
-:root { --orange: var(--amber); --orange-dim: var(--amber-dim); }
+/* BUG FIX: 不要在 :root 重新定义 --orange (会引用未定义的 --amber, 导致整个页面橙色全部失效)
+:root { --orange: var(--amber); --orange-dim: var(--amber-dim); } */
 
 /* =============== 导航 badge 变体 =============== */
 .sidebar nav a .badge.core { background: var(--orange-dim); color: var(--orange); }
@@ -749,6 +1539,40 @@ button { font-family: var(--font-cn); cursor: pointer; }
   border-radius: var(--radius-lg);
   margin-bottom: 14px;
 }
+
+/* =============== 时间范围筛选 =============== */
+.time-range-bar {
+  display: flex; gap: 4px; padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  align-items: center;
+}
+.time-range-bar::before {
+  content: "时间范围：";
+  font-size: 10px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin-right: 8px; font-weight: 600;
+}
+.time-range-btn {
+  background: var(--panel-elev);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.time-range-btn:hover { border-color: var(--orange); color: var(--text-primary); }
+.time-range-btn.active {
+  background: var(--orange);
+  color: var(--bg);
+  border-color: var(--orange);
+  font-weight: 600;
+}
 .bt-summary-item { display: flex; align-items: baseline; gap: 8px; }
 .bt-summary-label {
   font-family: var(--font-heading);
@@ -757,17 +1581,7 @@ button { font-family: var(--font-cn); cursor: pointer; }
 }
 .bt-summary-value { font-size: 16px; color: var(--text-primary); font-weight: 500; }
 
-/* =============== 决策卡：折叠原因 + 紧凑时间行 =============== */
-.decision-reason-toggle {
-  background: transparent; border: 0; padding: 4px 0;
-  color: var(--text-muted); font-size: 11px;
-  font-family: var(--font-heading); font-weight: 500;
-  cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
-  margin-top: 8px;
-  transition: color var(--transition);
-}
-.decision-reason-toggle:hover { color: var(--orange); }
-.decision-reason-toggle .toggle-icon { font-size: 10px; transition: transform var(--transition); }
+/* =============== 决策卡：原因 + 紧凑时间行 =============== */
 .decision-reason { margin-top: 8px; padding: 10px 12px; background: var(--panel-elev); border: 1px solid var(--border-subtle); border-radius: 6px; }
 .decision-reason .reason-zh { font-size: 12px; color: var(--text-primary); line-height: 1.6; }
 .decision-reason .reason-en { font-size: 10px; margin-top: 6px; word-break: break-all; }
@@ -787,6 +1601,7 @@ button { font-family: var(--font-cn); cursor: pointer; }
 
 /* =============== ETF 卡片列表（总览 / 移动端友好） =============== */
 .etf-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.etf-cards.overview-core { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .etf-card {
   background: var(--panel-elev); border: 1px solid var(--border-subtle);
   border-radius: var(--radius); padding: 12px 14px;
@@ -804,6 +1619,7 @@ button { font-family: var(--font-cn); cursor: pointer; }
 .etf-card-reason { font-size: 11px; color: var(--text-muted); margin-top: 8px; line-height: 1.5; min-height: 16px; }
 @media (max-width: 600px) {
   .etf-cards { grid-template-columns: 1fr; }
+  .etf-cards.overview-core { grid-template-columns: 1fr; }
   .time-row-mini { grid-template-columns: 1fr 1fr; }
 }
 
@@ -848,25 +1664,25 @@ button { font-family: var(--font-cn); cursor: pointer; }
   </div>
   <div id="status-chips" style="display:flex; gap:6px; flex-wrap:wrap; flex:1;"></div>
   <div class="mono muted" style="font-size:10px;">生成：__GENERATED_AT__</div>
+  <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换主题" title="切换白天/暗黑主题">
+    <span class="tt-icon" aria-hidden="true"></span>
+    <span class="tt-label" id="theme-toggle-label">暗黑</span>
+  </button>
 </div>
 
 <!-- ============= 布局 ============= -->
 <div class="app">
   <aside class="sidebar">
-    <div class="sidebar-brand flex">
-      <div class="logo-mark">Q</div>
-      <div style="margin-left:10px;">
-        <div class="brand-title">量化策略</div>
-        <div class="brand-sub">v__STRATEGY_VERSION__</div>
-      </div>
-    </div>
     <h2>导航</h2>
     <nav id="nav">
-      <a href="#overview" data-page="overview"><span class="icon">▦</span>总览 <span class="badge core">核心</span></a>
-      <a href="#signals" data-page="signals"><span class="icon">⚡</span>信号 <span class="badge core">核心</span></a>
-      <a href="#backtest" data-page="backtest"><span class="icon">📈</span>回测 <span class="badge core">核心</span></a>
+      <a href="#overview" data-page="overview"><span class="icon">▦</span>研究看板 <span class="badge core">核心</span></a>
+      <div class="sidebar-subnav" aria-label="研究看板章节">
+        <a href="#decision" data-section-link="decision">今日决策</a>
+        <a href="#signals" data-section-link="signals">信号与执行</a>
+        <a href="#performance" data-section-link="performance">策略表现</a>
+        <a href="#diagnostics" data-section-link="diagnostics">回测诊断</a>
+      </div>
       <a href="#data-quality" data-page="data-quality"><span class="icon">🛡</span>数据质量 <span class="badge audit">审计</span></a>
-      <a href="#settings" data-page="settings"><span class="icon">⚙</span>设置 <span class="badge audit">审计</span></a>
     </nav>
     <div class="sidebar-footer">
       仅供研究参考<br>不构成投资建议
@@ -874,118 +1690,118 @@ button { font-family: var(--font-cn); cursor: pointer; }
   </aside>
 
   <main class="main">
-    <!-- ============= 总览 ============= -->
+    <!-- ============= 研究看板：总览 + 信号 + 回测 ============= -->
     <section id="page-overview" class="page">
-      <div id="decision-card" class="decision anim-in"></div>
+      <nav class="dashboard-tabs" aria-label="看板快速跳转">
+        <a href="#decision" data-section-link="decision"><span class="n">01</span>今日决策</a>
+        <a href="#signals" data-section-link="signals"><span class="n">02</span>信号与执行</a>
+        <a href="#performance" data-section-link="performance"><span class="n">03</span>策略表现</a>
+        <a href="#diagnostics" data-section-link="diagnostics"><span class="n">04</span>回测诊断</a>
+      </nav>
 
-      <div class="section-title anim-in anim-d1"><span class="bar"></span>绩效指标</div>
-      <div id="kpi-grid" class="kpi-grid anim-in anim-d1"></div>
-
-      <div class="row anim-in anim-d2">
-        <div class="panel">
-          <h3><span class="bar"></span>权益曲线 · 策略 vs 基准 <span class="meta" id="ec-meta"></span></h3>
-          <div id="equity-chart" class="chart tall"></div>
+      <div id="section-decision" class="dashboard-section" data-section="decision">
+        <div class="section-heading anim-in">
+          <div><div class="eyebrow">01 · Decision</div><h2>今日决策</h2></div>
+          <div class="decision-heading-tools">
+            <span class="decision-clock"><span>当前时间</span><b id="decision-clock">--:--:--</b></span>
+            <label class="decision-date-label"><span>决策日历</span><select id="decision-date" aria-label="选择历史决策日期"></select></label>
+          </div>
         </div>
-        <div class="panel">
-          <h3><span class="bar"></span>回撤 <span class="meta" id="dd-meta"></span></h3>
-          <div id="drawdown-chart" class="chart tall"></div>
+        <div class="overview-balance">
+        <div id="decision-card" class="decision anim-in"></div>
+
+        <div class="overview-market-grid anim-in anim-d1">
+          <div id="market-snapshot" class="market-snapshot"></div>
+          <div id="kpi-grid" class="kpi-grid"></div>
+        </div>
+
+        <div class="overview-evidence anim-in anim-d2">
+          <div class="section-title"><span class="bar"></span>决策配置</div>
+          <div id="evidence-strip" class="evidence-strip"></div>
+        </div>
+        </div>
+
+        <div id="macro-feeds" class="macro-feeds anim-in anim-d3b is-shown"></div>
+      </div>
+
+      <div id="section-signals" class="dashboard-section" data-section="signals">
+        <div class="section-heading">
+          <div><div class="eyebrow">02 · Signals</div><h2>信号与执行</h2></div>
+          <p>目标仓位、当前仓位和推荐理由放在同一阅读区，减少从信号到行动的跳转。</p>
+        </div>
+        <div class="signal-layout">
+          <div class="panel">
+            <h3><span class="bar"></span>ETF 信号排名 <span class="meta" id="sig-meta"></span></h3>
+            <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+              <button class="kbd active" data-filter="all" aria-pressed="true">全部</button>
+              <button class="kbd" data-filter="buy" aria-pressed="false">买入</button>
+              <button class="kbd" data-filter="hold" aria-pressed="false">持有</button>
+              <button class="kbd" data-filter="avoid" aria-pressed="false">回避</button>
+              <button class="kbd" id="export-csv">导出 CSV</button>
+            </div>
+            <div id="signals-table" class="tbl-container signals-table-desktop"></div>
+            <div id="signals-cards-mobile" class="signals-mobile" role="list"></div>
+          </div>
+          <div class="signal-side">
+            <div class="panel">
+              <h3><span class="bar"></span>核心仓位 <span class="meta">点击查看详情</span></h3>
+              <div id="overview-watchlist"></div>
+            </div>
+            <div class="panel">
+              <h3><span class="bar"></span>最新推荐理由</h3>
+              <div id="signal-reason" class="mono" style="font-size:12px; padding:8px 0; line-height:1.7;"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="row anim-in anim-d3">
+      <div id="section-performance" class="dashboard-section" data-section="performance">
+        <div class="section-heading">
+          <div><div class="eyebrow">03 · Performance</div><h2>策略表现</h2></div>
+          <p>权益、回撤、仓位和定投乘数共享同一时间语境，核心证据只保留一套。</p>
+        </div>
+        <div id="bt-summary"></div>
+        <div class="time-range-bar" role="tablist" aria-label="时间范围">
+          <button class="time-range-btn" data-range="1m">1M</button>
+          <button class="time-range-btn" data-range="3m">3M</button>
+          <button class="time-range-btn" data-range="6m">6M</button>
+          <button class="time-range-btn" data-range="1y">1Y</button>
+          <button class="time-range-btn active" data-range="all">全部</button>
+        </div>
+        <div class="performance-grid">
+          <div class="panel">
+            <h3><span class="bar"></span>权益曲线 · 策略 vs 基准 <span class="meta" id="ec-meta"></span></h3>
+            <div id="equity-chart" class="chart tall"></div>
+          </div>
+          <div class="performance-side">
+            <div class="panel">
+              <h3><span class="bar"></span>回撤 <span class="meta" id="dd-meta"></span></h3>
+              <div id="drawdown-chart" class="chart short"></div>
+            </div>
+            <div class="panel">
+              <h3><span class="bar"></span>周定投乘数</h3>
+              <div id="mult-chart" class="chart short"></div>
+            </div>
+          </div>
+        </div>
         <div class="panel">
           <h3><span class="bar"></span>资产配置变化 · SPY / QQQ / 现金 <span class="meta" id="alloc-meta"></span></h3>
           <div id="alloc-chart" class="chart"></div>
         </div>
-        <div class="panel">
-          <h3><span class="bar"></span>周定投乘数</h3>
-          <div id="mult-chart" class="chart"></div>
-        </div>
       </div>
 
-      <div class="panel anim-in anim-d4">
-        <h3><span class="bar"></span>ETF 关注列表 · 前 5 <span class="meta">点击卡片查看详情</span></h3>
-        <div id="overview-watchlist"></div>
-      </div>
-
-      <div class="panel anim-in anim-d5">
-        <h3><span class="bar"></span>近期交易</h3>
-        <div id="overview-trades" class="tbl-container"></div>
-      </div>
-    </section>
-
-    <!-- ============= 信号 ============= -->
-    <section id="page-signals" class="page">
-      <div class="panel anim-in">
-        <h3><span class="bar"></span>ETF 关注列表 & 信号排名 <span class="meta" id="sig-meta"></span></h3>
-        <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
-          <button class="kbd active" data-filter="all" aria-pressed="true">全部</button>
-          <button class="kbd" data-filter="buy" aria-pressed="false">买入</button>
-          <button class="kbd" data-filter="hold" aria-pressed="false">持有</button>
-          <button class="kbd" data-filter="avoid" aria-pressed="false">回避</button>
-          <button class="kbd" id="export-csv">导出全部 CSV</button>
+      <div id="section-diagnostics" class="dashboard-section" data-section="diagnostics">
+        <div class="section-heading">
+          <div><div class="eyebrow">04 · Diagnostics</div><h2>回测诊断</h2></div>
+          <p>用于判断策略表现是否稳定、收益来自何处，以及历史行为是否符合预期。</p>
         </div>
-        <div id="signals-table" class="tbl-container signals-table-desktop"></div>
-        <div id="signals-cards-mobile" class="signals-mobile" role="list"></div>
-      </div>
-
-      <div class="panel anim-in anim-d1">
-        <h3><span class="bar"></span>信号驱动因子 · 最新推荐理由</h3>
-        <div id="signal-reason" class="mono" style="font-size:12px; padding:8px 0; line-height:1.7;"></div>
-      </div>
-    </section>
-
-    <!-- ============= 回测 ============= -->
-    <section id="page-backtest" class="page">
-      <div class="section-title anim-in"><span class="bar"></span>回测概要</div>
-      <div id="bt-summary" class="anim-in"></div>
-
-      <div class="row anim-in anim-d1">
-        <div class="panel">
-          <h3><span class="bar"></span>权益曲线</h3>
-          <div id="bt-equity" class="chart tall"></div>
+        <div class="row">
+          <div class="panel"><h3><span class="bar"></span>滚动 63 日收益 / 夏普</h3><div id="bt-rolling" class="chart"></div></div>
+          <div class="panel"><h3><span class="bar"></span>月度收益热力图</h3><div id="bt-heatmap" class="chart"></div></div>
         </div>
-        <div class="panel">
-          <h3><span class="bar"></span>回撤</h3>
-          <div id="bt-drawdown" class="chart tall"></div>
-        </div>
-      </div>
-
-      <div class="row anim-in anim-d2">
-        <div class="panel">
-          <h3><span class="bar"></span>滚动 63 日收益 / 夏普</h3>
-          <div id="bt-rolling" class="chart"></div>
-        </div>
-        <div class="panel">
-          <h3><span class="bar"></span>月度收益热力图</h3>
-          <div id="bt-heatmap" class="chart"></div>
-        </div>
-      </div>
-
-      <div class="row anim-in anim-d3">
-        <div class="panel">
-          <h3><span class="bar"></span>年度收益</h3>
-          <div id="bt-annual" class="tbl-container"></div>
-        </div>
-        <div class="panel">
-          <h3><span class="bar"></span>市场状态 & 乘数分布</h3>
-          <div id="bt-dist" class="chart"></div>
-        </div>
-      </div>
-
-      <div class="panel anim-in anim-d4">
-        <h3><span class="bar"></span>交易明细（最近）</h3>
-        <div id="bt-trades" class="tbl-container"></div>
-      </div>
-
-      <div class="row anim-in anim-d5">
-        <div class="panel">
-          <h3><span class="bar"></span>参数快照</h3>
-          <div id="bt-params" class="settings-grid"></div>
-        </div>
-        <div class="panel">
-          <h3><span class="bar"></span>验证结果</h3>
-          <div id="bt-verifier"></div>
+        <div class="row">
+          <div class="panel"><h3><span class="bar"></span>年度收益</h3><div id="bt-annual" class="tbl-container"></div></div>
+          <div class="panel"><h3><span class="bar"></span>时间策略：估值档 → 定投乘数（CAPE 驱动）</h3><div id="bt-dist" class="chart"></div></div>
         </div>
       </div>
     </section>
@@ -997,23 +1813,18 @@ button { font-family: var(--font-cn); cursor: pointer; }
         <div id="dq-summary" class="alert"></div>
         <div id="dq-rows"></div>
       </div>
+      <div class="row anim-in anim-d1">
+        <div class="panel">
+          <h3><span class="bar"></span>参数快照</h3>
+          <div id="bt-params" class="settings-grid"></div>
+        </div>
+        <div class="panel">
+          <h3><span class="bar"></span>验证结果</h3>
+          <div id="bt-verifier"></div>
+        </div>
+      </div>
     </section>
 
-    <!-- ============= 设置 ============= -->
-    <section id="page-settings" class="page">
-      <div class="panel anim-in">
-        <h3><span class="bar"></span>策略配置 <span class="meta">只读 · 修改需重新运行</span></h3>
-        <div id="settings-main" class="settings-grid"></div>
-      </div>
-      <div class="panel anim-in anim-d1">
-        <h3><span class="bar"></span>QDII 标的池</h3>
-        <div id="settings-qdii"></div>
-      </div>
-      <div class="panel anim-in anim-d2">
-        <h3><span class="bar"></span>ETF 池</h3>
-        <div id="settings-pool" class="etf-pool-grid"></div>
-      </div>
-    </section>
   </main>
 </div>
 
@@ -1035,9 +1846,22 @@ button { font-family: var(--font-cn); cursor: pointer; }
 window.__DASHBOARD__ = __DATA_JSON__;
 </script>
 <script>
+/* 主题：内联执行，避免页面闪烁。优先级 localStorage > 浏览器 prefers-color-scheme */
+(function() {
+  try {
+    var stored = localStorage.getItem("etf-dashboard-theme");
+    var theme = stored || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
+})();
+</script>
+<script>
 (function() {
   "use strict";
-  var D = window.__DASHBOARD__;
+  var ROOT_D = window.__DASHBOARD__;
+  var D = ROOT_D;
   if (!D) {
     document.body.innerHTML = '<div class="empty">⚠ 仪表盘数据未加载</div>';
     return;
@@ -1105,6 +1929,9 @@ window.__DASHBOARD__ = __DATA_JSON__;
       out = out.replace(pair[0], pair[1]);
     });
     out = out.replace(/;\s*/g, " · ").replace(/,\s*/g, ", ");
+    out = out.replace(/估值 CAPE=([0-9.]+):估值极高/g, "CAPE=$1，估值极高");
+    out = out.replace(/估值 CAPE=([0-9.]+):估值偏高/g, "CAPE=$1，估值偏高");
+    out = out.replace(/估值 CAPE=([0-9.]+):/g, "CAPE=$1，");
     return out;
   }
 
@@ -1150,8 +1977,45 @@ window.__DASHBOARD__ = __DATA_JSON__;
   }
 
   // ---- Decision Card ----
+  var selectedDecisionDate = "";
+  function decisionView() {
+    var entry = (ROOT_D.decisionHistory || []).find(function(row) { return row.date === selectedDecisionDate; });
+    var summary = D.summary || {};
+    return Object.assign({}, summary, {
+      market: (D.advice && D.advice.market) || (entry && entry.market) || {},
+      decision: (entry && entry.decision) || {}
+    });
+  }
+  function initDecisionHistory() {
+    var select = document.getElementById("decision-date");
+    if (!select) return;
+    var history = (ROOT_D.decisionHistory || []).slice().sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
+    select.innerHTML = history.map(function(item) {
+      var suffix = item.date === ROOT_D.summary.signalDate ? " · 最新" : "";
+      return '<option value="' + esc(item.date) + '">' + esc(item.date + suffix) + '</option>';
+    }).join("");
+    selectedDecisionDate = history.length ? history[0].date : "";
+    D = (ROOT_D.asOfViews && ROOT_D.asOfViews[selectedDecisionDate]) || ROOT_D;
+    select.value = selectedDecisionDate;
+    select.addEventListener("change", function() {
+      selectedDecisionDate = select.value;
+      D = (ROOT_D.asOfViews && ROOT_D.asOfViews[selectedDecisionDate]) || ROOT_D;
+      renderAllDashboard();
+    });
+  }
+  function startDecisionClock() {
+    function tick() {
+      var el = document.getElementById("decision-clock");
+      if (el) el.textContent = new Intl.DateTimeFormat("zh-CN", {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+      }).format(new Date());
+    }
+    tick();
+    window.setInterval(tick, 1000);
+  }
   function renderDecision() {
-    var s = D.summary, a = s.currentAction;
+    var s = decisionView(), a = s.currentAction;
     var isResearch = s.mode === "research";
     var actionMap = { "BUY": "买入", "SELL": "卖出", "HOLD": "持有", "REBALANCE": "再平衡" };
     var cls = ["buy", "sell", "hold", "rebalance"].indexOf(a.action.toLowerCase()) >= 0 ? a.action.toLowerCase() : "rebalance";
@@ -1159,7 +2023,7 @@ window.__DASHBOARD__ = __DATA_JSON__;
     var reasonText = a.reason || "—";
     var reasonZh = translateReason(reasonText);
     var html = ''
-      + '<div>'
+      + '<div class="decision-main">'
       +   '<div class="action"><span class="label">今日操作</span>'
       +     '<span class="verb ' + cls + '">' + (actionMap[a.action] || a.action) + '</span>'
       +     '<span class="ticker">' + esc(a.ticker) + '</span>'
@@ -1168,18 +2032,14 @@ window.__DASHBOARD__ = __DATA_JSON__;
       +   '<div class="meta">'
       +     '<div>目标权重 <b>' + fmtPct(a.targetWeight, false) + '</b></div>'
       +     '<div>当前 <b>' + fmtPct(a.currentWeight, false) + '</b></div>'
-      +     '<div>Δ <b class="' + deltaClass(a.tradeDelta) + '">' + fmtPct(a.tradeDelta) + '</b></div>'
+      +     '<div>调仓幅度 <b class="' + deltaClass(a.targetWeight - a.currentWeight) + '" title="调仓幅度 = 目标权重 − 当前权重">' + fmtPct((a.targetWeight || 0) - (a.currentWeight || 0), true) + '</b></div>'
+      +     '<div>组合净影响 <b class="' + deltaClass(a.tradeDelta) + '" title="组合净影响 = 该 ETF 调仓后对总组合的净 Δ（dollar-neutral 分配后较小）">' + fmtPct(a.tradeDelta, true) + '</b></div>'
       +   '</div>'
-      +   '<button class="decision-reason-toggle" type="button" aria-expanded="false" aria-controls="decision-reason-detail">'
-      +     '<span class="toggle-icon">▸</span> 查看原因'
-      +   '</button>'
-      +   '<div id="decision-reason-detail" class="decision-reason" hidden>'
+      + '</div>'
+      + '<div class="decision-detail">'
+      +   '<div id="decision-reason-detail" class="decision-reason">'
       +     '<div class="reason-zh">' + esc(reasonZh) + '</div>'
-      +     '<details class="reason-advanced">'
-      +       '<summary>高级 · 调试信息</summary>'
-      +       '<div class="reason-en muted">' + esc(reasonText) + '</div>'
-      +     '</details>'
-      +     '<div class="time-note" style="margin-top:10px;">⚠ 此为基于' + esc(shortDate(s.signalDate)) + '收盘的信号，假设在' + esc(shortDate(s.executionDate)) + '开盘执行，非实时报价建议。</div>'
+      +     '<div class="time-note" style="margin-top:10px;">基于 ' + esc(shortDate(s.signalDate)) + ' 收盘信号，按 ' + esc(shortDate(s.executionDate)) + ' 开盘执行；非实时报价建议。</div>'
       +     '<div class="time-row-mini" aria-label="建议时间线">'
       +       '<div class="time-mini"><span class="tk">信号</span><b>' + esc(shortDate(s.signalDate)) + '</b></div>'
       +       '<div class="time-mini"><span class="tk">执行</span><b>' + esc(shortDate(s.executionDate)) + '</b></div>'
@@ -1187,33 +2047,97 @@ window.__DASHBOARD__ = __DATA_JSON__;
       +       '<div class="time-mini"><span class="tk">数据</span><b>' + esc(shortTime(s.dataAvailableAt)) + '</b></div>'
       +     '</div>'
       +   '</div>'
-      + '</div>'
-      + '<div class="buttons">'
-      +   '<button onclick="location.hash = \'#signals\'" title="跳到信号页">信号</button>'
-      +   '<button onclick="location.hash = \'#backtest\'" title="跳到回测页">交易</button>'
-      +   '<button id="export-advice" title="导出当前建议为 CSV">导出</button>'
       + '</div>';
     var el = document.getElementById("decision-card");
     el.className = "decision anim-in" + (isResearch ? " research" : "");
     el.innerHTML = html;
-    var btn = document.getElementById("export-advice");
-    if (btn) btn.addEventListener("click", function() { exportAdviceCsv(); });
-    var toggle = el.querySelector(".decision-reason-toggle");
-    if (toggle) {
-      toggle.addEventListener("click", function() {
-        var open = toggle.getAttribute("aria-expanded") === "true";
-        toggle.setAttribute("aria-expanded", open ? "false" : "true");
-        var detail = document.getElementById("decision-reason-detail");
-        var icon = toggle.querySelector(".toggle-icon");
-        if (open) {
-          detail.setAttribute("hidden", "");
-          if (icon) icon.textContent = "▸";
-        } else {
-          detail.removeAttribute("hidden");
-          if (icon) icon.textContent = "▾";
-        }
-      });
+  }
+
+  function renderDecisionContext() {
+    renderDecision();
+    renderMarketSnapshot();
+    renderKpis();
+    renderEvidenceStrip();
+  }
+
+  function renderAllDashboard() {
+    renderStatusBar();
+    renderDecisionContext();
+    renderLlmCopilot();
+    renderOverviewWatchlist();
+    renderSignals();
+    renderEquityCharts();
+    renderBacktest();
+    renderDataQuality();
+    Object.keys(charts).forEach(function(k) { try { charts[k].resize(); } catch (e) {} });
+  }
+
+  function renderLlmCopilot() {
+    var lc = (D.llmCopilot) || {};
+    var root = document.getElementById("llm-copilot");
+    if (!root) return;
+    // H1 fix: 默认显示，强制 animation 重启。
+    root.classList.remove("is-collapsed");
+    root.classList.add("is-shown");
+    void root.offsetWidth;
+    root.style.display = "grid";
+    root.style.gridTemplateColumns = "1fr";
+    root.style.gap = "14px";
+    root.style.padding = "16px 18px";
+    root.style.background = "var(--panel)";
+    root.style.border = "1px solid var(--border)";
+    root.style.borderRadius = "var(--radius-lg)";
+    root.style.boxShadow = "var(--shadow)";
+    if (!lc.available) {
+      root.dataset.disabled = "true";
+      root.innerHTML =
+        '<div class="lc-header">' +
+          '<h3><span class="bar"></span>模型解读</h3>' +
+        '</div>' +
+        '<div class="lc-disabled">本次未启用 LLM 副驾驶。设置 LLM_API_KEY 后可显示模型对本周信号的人话解读。</div>';
+      return;
     }
+
+    var review = lc.review || {};
+    var expl = lc.explanation || {};
+
+    // 标题用 explanation 的第一句话作为副标题(动态内容,不写死标签)
+    var firstSentence = "";
+    if (expl.explanation) {
+      firstSentence = String(expl.explanation).split(/[。！？\n]/)[0].trim();
+      if (firstSentence.length > 60) firstSentence = firstSentence.slice(0, 60) + "…";
+    }
+
+    var headerHtml =
+      '<div class="lc-header">' +
+        '<h3><span class="bar"></span>模型解读</h3>' +
+        (firstSentence ? '<span class="lc-subtitle">' + esc(firstSentence) + '</span>' : '') +
+      '</div>';
+
+    // 只展示方案 B (rationale 人话版) — 用户不需要看 v1 审查 / v2 工具化等内容
+    var explHtml = '<div class="lc-card lc-card-full">';
+    if (expl.error) {
+      explHtml +=
+        '<div class="lc-error">⚠ ' + esc(expl.error) + '</div>' +
+        '<div class="lc-fallback">本次未生成解读，建议查看决策卡的"原始理由"。</div>';
+    } else if (expl.explanation) {
+      explHtml += '<div class="lc-explanation">' + esc(expl.explanation) + '</div>';
+    } else {
+      explHtml += '<div class="lc-fallback">（空）</div>';
+    }
+    explHtml += '</div>';
+
+    root.classList.remove("is-collapsed");
+    root.classList.add("is-shown");
+    // Force animation restart (Safari/Chrome may not restart the fadeInUp
+    // when going from display:none → display:grid).
+    void root.offsetWidth;
+    root.className = "anim-in anim-d2b is-shown";
+    root.innerHTML = headerHtml + explHtml;
+    // Belt-and-suspenders: re-apply layout in case the inline styles above were
+    // cleared by some intermediate pass.
+    root.style.display = "grid";
+    root.style.gridTemplateColumns = "1fr";
   }
 
   function exportAdviceCsv() {
@@ -1240,24 +2164,110 @@ window.__DASHBOARD__ = __DATA_JSON__;
     setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
   }
 
-  // ---- KPI Cards (4: 年化 / 近1年 / 最大回撤 / 夏普&超额) ----
+  function fmtPctPoints(p) {
+    if (p === null || p === undefined || isNaN(p)) return "—";
+    var n = Number(p);
+    return (n >= 0 ? "+" : "-") + Math.abs(n).toFixed(2) + "%";
+  }
+
+  function renderMarketSnapshot() {
+    var s = decisionView();
+    var m = s.market || ((D.advice && D.advice.market) || {});
+    var items = [
+      {
+        label: "当前数据",
+        value: shortDate(m.sp500_index_date || m.nasdaq_index_date || m.latest_market_date || s.priceDate),
+        sub: "最新完成收盘"
+      },
+      {
+        label: "S&P 500 指数",
+        value: m.sp500_index_close ? fmtNum(m.sp500_index_close, 2) : (m.spy_close ? "$" + fmtNum(m.spy_close, 2) : "—"),
+        sub: "较前收盘",
+        move: m.sp500_index_daily_return_pct === undefined || m.sp500_index_daily_return_pct === null
+          ? m.spy_daily_return_pct
+          : m.sp500_index_daily_return_pct
+      },
+      {
+        label: "NASDAQ 指数",
+        value: m.nasdaq_index_close ? fmtNum(m.nasdaq_index_close, 2) : (m.qqq_close ? "$" + fmtNum(m.qqq_close, 2) : "—"),
+        sub: "较前收盘",
+        move: m.nasdaq_index_daily_return_pct === undefined || m.nasdaq_index_daily_return_pct === null
+          ? m.qqq_daily_return_pct
+          : m.nasdaq_index_daily_return_pct
+      }
+    ];
+    var el = document.getElementById("market-snapshot");
+    if (!el) return;
+    el.innerHTML = items.map(function(item) {
+      var moveHtml = item.move === undefined
+        ? ""
+        : '<div class="move ' + deltaClass(item.move) + '">' + fmtPctPoints(item.move) + '</div>';
+      return '<div class="snap">'
+           +   '<div>'
+           +     '<div class="label">' + esc(item.label) + '</div>'
+           +     '<div class="value">' + esc(item.value) + '</div>'
+           +     '<div class="sub" title="最新收盘价 / 前一交易日收盘价 - 1">' + esc(item.sub) + '</div>'
+           +   '</div>'
+           +   moveHtml
+           + '</div>';
+    }).join("");
+  }
+
+  // ---- Decision context KPI cards ----
   function renderKpis() {
-    var m = D.summary.metrics, b = D.summary.benchmarkMetrics;
-    var stale = D.summary.status.dataFreshness !== "fresh";
-    var excess = m.cagr - b.xirr;
+    var view = decisionView();
+    var m = view.market || {};
+    var d = view.decision || {};
+    var stale = false;
     var kpis = [
-      { k: "年化收益", v: fmtPct(m.cagr), d: "XIRR · 资金加权", tip: "年化内部收益率；考虑每周投入的现金流" },
-      { k: "近 1 年", v: fmtPct(m.oneYearReturn), d: "滚动 252 个交易日", tip: "最近 252 个交易日的策略收益" },
-      { k: "最大回撤", v: fmtPct(m.maxDrawdown), d: "峰谷最大跌幅", tip: "策略权益曲线上最大的峰到谷跌幅" },
-      { k: "夏普 / 超额", v: fmtNum(m.sharpe) + " · " + fmtPct(excess, true), d: "策略 " + fmtNum(m.sharpe) + " · 超额 vs 基准", tip: "夏普比率 + 策略相对基准的超额年化收益" }
+      { k: "定投乘数", v: m.cape === undefined ? "—" : fmtNum(d.dcaMultiplier) + "x", d: translateRegime(d.regime), tip: "控制当期定投金额相对基础预算的比例。0.75x 表示投入基础预算的 75%，估值越高通常越保守。" },
+      { k: "CAPE", v: fmtNum(m.cape), d: "估值水平", tip: "周期调整市盈率：用过去 10 年经通胀调整后的平均盈利衡量市场估值。数值越高，长期估值压力通常越大。" },
+      { k: "VIX", v: fmtNum(m.vix), d: "市场波动", tip: "标普 500 期权隐含的未来约 30 天年化波动率，也常被称为恐慌指数。数值越高，市场预期波动越大。" },
+      { k: "RSI 14", v: fmtNum(m.spy_rsi14), d: "SPY 短期强弱", tip: "SPY 最近 14 个交易日的相对强弱指标。通常高于 70 视为偏热，低于 30 视为偏弱。" }
     ];
     var el = document.getElementById("kpi-grid");
     el.innerHTML = kpis.map(function(k, i) {
-      return '<div class="kpi' + (stale ? ' stale' : '') + '" tabindex="0" role="figure" aria-label="' + esc(k.k) + '：' + esc(k.v) + '。' + esc(k.tip) + '">'
+      var tipId = "kpi-tip-" + i;
+      return '<div class="kpi' + (stale ? ' stale' : '') + '" role="figure" aria-label="' + esc(k.k) + '：' + esc(k.v) + '">'
+           +   '<button class="info-tip" type="button" data-info-tip aria-expanded="false" aria-describedby="' + tipId + '" aria-label="查看' + esc(k.k) + '说明">?'
+           +     '<span class="tip-content" id="' + tipId + '" role="tooltip">' + esc(k.tip) + '</span>'
+           +   '</button>'
            +   '<div class="label">' + esc(k.k) + '</div>'
            +   '<div class="value">' + k.v + '</div>'
            +   '<div class="delta neutral">' + esc(k.d) + '</div>'
-           +   '<span class="sr-only">' + esc(k.tip) + '</span>'
+           + '</div>';
+    }).join("");
+  }
+
+  function renderEvidenceStrip() {
+    var s = decisionView();
+    var d = s.decision || {};
+    var m = s.market || {};
+    var items = [
+      {
+        label: "SPY 目标",
+        value: fmtPct(d.spyTargetWeight, false),
+        sub: "该决策日新买入配置"
+      },
+      {
+        label: "QQQ 目标",
+        value: fmtPct(d.qqqTargetWeight, false),
+        sub: "该决策日新买入配置"
+      },
+      {
+        label: "QQQ 相对强弱",
+        value: fmtPctPoints(m.qqq_rel_63d_pct),
+        sub: "63 日 QQQ / SPY"
+      }
+    ];
+    var el = document.getElementById("evidence-strip");
+    if (!el) return;
+    el.innerHTML = items.map(function(item) {
+      var cls = item.label === "QQQ 相对强弱" ? deltaClass(m.qqq_rel_63d_pct) : "neutral";
+      return '<div class="evidence-item" role="figure" aria-label="' + esc(item.label) + '：' + esc(item.value) + '">'
+           +   '<div class="label">' + esc(item.label) + '</div>'
+           +   '<div class="value ' + cls + '">' + esc(item.value) + '</div>'
+           +   '<div class="sub">' + esc(item.sub) + '</div>'
            + '</div>';
     }).join("");
   }
@@ -1271,21 +2281,38 @@ window.__DASHBOARD__ = __DATA_JSON__;
     var c = echarts.init(el, null, { renderer: "canvas" });
     c.setOption(opt);
     charts[id] = c;
+    // 自适应：网格/侧栏变化时让 echarts 重读容器宽度，避免图表被压缩或拉伸后留白
+    if (!window.__chartRO && window.ResizeObserver) {
+      window.__chartRO = new ResizeObserver(function(entries) {
+        entries.forEach(function(en) {
+          var e = en.target;
+          var inst = charts[e.id];
+          if (inst) inst.resize();
+        });
+      });
+    }
+    if (window.__chartRO) window.__chartRO.observe(el);
     return c;
   }
 
   function chartCommon(extra) {
+    // 跟随白天/暗黑主题：tooltip 背景/文字/边框都从 CSS 变量读
+    var cs = getComputedStyle(document.documentElement);
+    var tipBg = cs.getPropertyValue("--panel-elev-solid").trim() || "#1c1c1a";
+    var tipText = cs.getPropertyValue("--text-primary").trim() || "#faf9f5";
+    var tipBorder = cs.getPropertyValue("--border-subtle").trim() || "rgba(176,174,165,0.15)";
+    var axisColor = cs.getPropertyValue("--text-muted").trim() || "#7a7870";
     return Object.assign({
       backgroundColor: "transparent",
-      textStyle: { color: "#b0aea5", fontFamily: "Poppins, DM Mono, sans-serif" },
+      textStyle: { color: axisColor, fontFamily: "Poppins, DM Mono, sans-serif" },
       grid: { left: 56, right: 20, top: 20, bottom: 36 },
       tooltip: {
         trigger: "axis",
-        backgroundColor: "rgba(28,28,26,0.95)",
-        borderColor: "rgba(176,174,165,0.15)",
-        textStyle: { color: "#faf9f5", fontFamily: "DM Mono, Poppins" }
+        backgroundColor: tipBg,
+        borderColor: tipBorder,
+        textStyle: { color: tipText, fontFamily: "DM Mono, Poppins" }
       },
-      legend: { textStyle: { color: "#b0aea5", fontFamily: "Poppins" }, top: 0 }
+      legend: { textStyle: { color: axisColor, fontFamily: "Poppins" }, top: 0, itemGap: 14, itemWidth: 12, itemHeight: 8, type: "scroll" }
     }, extra || {});
   }
 
@@ -1301,37 +2328,97 @@ window.__DASHBOARD__ = __DATA_JSON__;
     axisLine: "rgba(176,174,165,0.1)"
   };
 
+  // 跟随主题的文字主色（白天/暗黑都看得清）
+  function getThemeColor(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+  var labelColor = getThemeColor("--text-primary", "#faf9f5");
+
+  // 全局时间范围筛选状态
+  var currentTimeRange = "all";
+  var RAW_SERIES = null;  // 原始 series cache, 切换范围时复用
+
+  function filterSeriesByRange(data, range) {
+    if (range === "all" || !data || !data.length) return data;
+    var n = data.length;
+    var days = { "1m": 21, "3m": 63, "6m": 126, "1y": 252 }[range] || n;
+    return data.slice(Math.max(0, n - days));
+  }
+
   function renderEquityCharts() {
     var data = D.backtest.series;
+    RAW_SERIES = data;  // 缓存原始, 切换时间范围时复用
     if (!data.length) {
       document.getElementById("equity-chart").innerHTML = '<div class="empty">无权益数据</div>';
       return;
     }
+    if (!window.echarts) {
+      ["equity-chart", "drawdown-chart", "alloc-chart", "mult-chart"].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = '<div class="chart-fallback">图表库仍在加载。建议、KPI 和表格数据已可阅读。</div>';
+      });
+      return;
+    }
+    // 按时间范围裁剪 (1M/3M/6M/1Y/全部)
+    data = filterSeriesByRange(data, currentTimeRange);
     var dates = data.map(function(p) { return p.date; });
     var s = data.map(function(p) { return +p.strategyEquity.toFixed(0); });
     var b = data.map(function(p) { return +p.benchmarkEquity.toFixed(0); });
     var cashPct = data.map(function(p) { return +(p.allocation.CASH * 100).toFixed(2); });
+    var last = data[data.length - 1];
+    var minStrategyDd = Math.min.apply(null, data.map(function(p) { return p.strategyDrawdown; }));
+    var minStrategyDdPoint = data.reduce(function(acc, p) {
+      return p.strategyDrawdown <= acc.strategyDrawdown ? p : acc;
+    }, data[0]);
 
-    document.getElementById("ec-meta").innerHTML = data.length + " 个数据点 · " + data[0].date + " → " + data[data.length-1].date;
+    var rangeLabel = { "1m": "近 1M", "3m": "近 3M", "6m": "近 6M", "1y": "近 1Y", "all": "全部" }[currentTimeRange] || currentTimeRange;
+    document.getElementById("ec-meta").textContent = data.length + " 点 · " + rangeLabel + " · 最新 策略 " + fmtUsd(last.strategyEquity) + " / 基准 " + fmtUsd(last.benchmarkEquity);
 
     initChart("equity-chart", chartCommon({
+      // 右侧预留足够空间放最右 label（策略 + 基准两个 name + 美元金额），避免被裁
+      grid: { left: 56, right: 170, top: 32, bottom: 40 },
       xAxis: { type: "category", data: dates, axisLabel: { color: C.axisLabel, fontSize: 10 }, axisLine: { lineStyle: { color: C.axisLine } } },
       yAxis: { type: "value", axisLabel: { color: C.axisLabel, formatter: function(v) { return "$" + (v/1000).toFixed(0) + "k"; } }, splitLine: { lineStyle: { color: C.gridLine } } },
       series: [
-        { name: "策略", type: "line", smooth: true, showSymbol: false, lineStyle: { width: 2, color: C.strategy }, data: s, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(217,119,87,0.12)" }, { offset: 1, color: "rgba(217,119,87,0)" }] } } },
-        { name: "基准 50/50", type: "line", smooth: true, showSymbol: false, lineStyle: { width: 2, color: C.benchmark }, data: b }
+        // 策略线（下方）— 用 markLine 在最右点画一个指向 label 的引导线 + label 本身放在 label 网格里
+        { name: "策略", type: "line", smooth: false, showSymbol: false, lineStyle: { width: 2, color: C.strategy }, data: s, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(217,119,87,0.12)" }, { offset: 1, color: "rgba(217,119,87,0)" }] } }, markPoint: { symbol: "circle", symbolSize: 7, label: { show: false } } },
+        // 基准线（上方）
+        { name: "基准", type: "line", smooth: false, showSymbol: false, lineStyle: { width: 2, color: C.benchmark }, data: b, markPoint: { symbol: "circle", symbolSize: 7, label: { show: false } } }
+      ],
+      // 在图右上角画两个独立的标签框（避开曲线 + 互不重叠）
+      graphic: [
+        {
+          type: "group",
+          right: 10, top: 8,
+          children: [
+            { type: "rect", shape: { width: 130, height: 38, r: 4 }, style: { fill: "rgba(106,155,204,0.12)", stroke: C.benchmark, lineWidth: 1 } },
+            { type: "text", x: 120, y: 6, style: { text: "基准 50/50", fill: C.benchmark, font: "500 10px Poppins", textAlign: "right" } },
+            { type: "text", x: 120, y: 19, style: { text: fmtUsd(last.benchmarkEquity), fill: "#faf9f5", font: "500 13px DM Mono", textAlign: "right" } }
+          ]
+        },
+        {
+          type: "group",
+          right: 10, top: 56,
+          children: [
+            { type: "rect", shape: { width: 130, height: 38, r: 4 }, style: { fill: "rgba(217,119,87,0.12)", stroke: C.strategy, lineWidth: 1 } },
+            { type: "text", x: 120, y: 6, style: { text: "策略", fill: C.strategy, font: "500 10px Poppins", textAlign: "right" } },
+            { type: "text", x: 120, y: 19, style: { text: fmtUsd(last.strategyEquity), fill: "#faf9f5", font: "500 13px DM Mono", textAlign: "right" } }
+          ]
+        }
       ]
     }));
 
     var ddS = data.map(function(p) { return +(p.strategyDrawdown * 100).toFixed(2); });
     var ddB = data.map(function(p) { return +(p.benchmarkDrawdown * 100).toFixed(2); });
-    document.getElementById("dd-meta").innerHTML = "当前回撤 " + fmtPct(data[data.length-1].strategyDrawdown);
+    document.getElementById("dd-meta").textContent = "当前 " + fmtPct(last.strategyDrawdown) + " · 最大 " + fmtPct(minStrategyDd);
     initChart("drawdown-chart", chartCommon({
+      grid: { left: 56, right: 34, top: 28, bottom: 36 },
       xAxis: { type: "category", data: dates, axisLabel: { color: C.axisLabel, fontSize: 10 }, axisLine: { lineStyle: { color: C.axisLine } } },
       yAxis: { type: "value", axisLabel: { color: C.axisLabel, formatter: "{value}%" }, max: 0, splitLine: { lineStyle: { color: C.gridLine } } },
       series: [
-        { name: "策略回撤", type: "line", smooth: true, showSymbol: false, lineStyle: { width: 2, color: C.negative }, data: ddS, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(217,119,87,0.02)" }, { offset: 1, color: "rgba(217,119,87,0.10)" }] } } },
-        { name: "基准回撤", type: "line", smooth: true, showSymbol: false, lineStyle: { width: 1.5, color: C.cash }, data: ddB }
+        { name: "策略 DD", type: "line", smooth: false, showSymbol: false, lineStyle: { width: 2, color: C.negative }, data: ddS, areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(217,119,87,0.02)" }, { offset: 1, color: "rgba(217,119,87,0.10)" }] } }, markPoint: { symbol: "pin", symbolSize: 42, label: { formatter: fmtPct(minStrategyDd), color: labelColor, fontSize: 10 }, data: [{ coord: [minStrategyDdPoint.date, +(minStrategyDdPoint.strategyDrawdown * 100).toFixed(2)] }] } },
+        { name: "基准 DD", type: "line", smooth: false, showSymbol: false, lineStyle: { width: 1.5, color: C.cash }, data: ddB }
       ]
     }));
 
@@ -1339,18 +2426,46 @@ window.__DASHBOARD__ = __DATA_JSON__;
     var qqqW = data.map(function(p) { return +(p.allocation.QQQ * 100).toFixed(2); });
     // 100% 堆叠：QQQ + SPY + 现金 = 100%
     initChart("alloc-chart", chartCommon({
+      grid: { left: 56, right: 20, top: 28, bottom: 58 },
       xAxis: { type: "category", data: dates, axisLabel: { color: C.axisLabel, fontSize: 10 }, axisLine: { lineStyle: { color: C.axisLine } } },
       yAxis: { type: "value", axisLabel: { color: C.axisLabel, formatter: "{value}%" }, max: 100, splitLine: { lineStyle: { color: C.gridLine } } },
       tooltip: { trigger: "axis", valueFormatter: function(v) { return (v || 0).toFixed(1) + "%"; } },
+      dataZoom: [
+        {
+          type: "inside",
+          filterMode: "filter",
+          zoomOnMouseWheel: true,
+          moveOnMouseWheel: true,
+          moveOnMouseMove: true
+        },
+        {
+          type: "slider",
+          filterMode: "filter",
+          height: 18,
+          bottom: 8,
+          brushSelect: true,
+          borderColor: "rgba(176,174,165,0.2)",
+          fillerColor: "rgba(106,155,204,0.18)",
+          handleStyle: { color: "#6a9bcc" },
+          dataBackground: {
+            lineStyle: { color: "rgba(106,155,204,0.35)" },
+            areaStyle: { color: "rgba(106,155,204,0.08)" }
+          },
+          selectedDataBackground: {
+            lineStyle: { color: "rgba(106,155,204,0.85)" },
+            areaStyle: { color: "rgba(106,155,204,0.18)" }
+          },
+          textStyle: { color: "#7a7870", fontFamily: "DM Mono" }
+        }
+      ],
       series: [
-        { name: "QQQ %", type: "line", smooth: true, showSymbol: false, stack: "total", lineStyle: { width: 1, color: C.positive }, areaStyle: { color: "rgba(120,140,93,0.45)" }, data: qqqW },
-        { name: "SPY %", type: "line", smooth: true, showSymbol: false, stack: "total", lineStyle: { width: 1, color: C.strategy }, areaStyle: { color: "rgba(217,119,87,0.45)" }, data: spyW },
-        { name: "现金 %", type: "line", smooth: true, showSymbol: false, stack: "total", lineStyle: { width: 1, color: C.cash }, areaStyle: { color: "rgba(196,181,253,0.4)" }, data: cashPct }
+        { name: "QQQ %", type: "line", step: "end", smooth: false, showSymbol: false, stack: "total", lineStyle: { width: 1, color: C.positive }, areaStyle: { color: "rgba(120,140,93,0.45)" }, data: qqqW },
+        { name: "SPY %", type: "line", step: "end", smooth: false, showSymbol: false, stack: "total", lineStyle: { width: 1, color: C.strategy }, areaStyle: { color: "rgba(217,119,87,0.45)" }, data: spyW },
+        { name: "现金 %", type: "line", step: "end", smooth: false, showSymbol: false, stack: "total", lineStyle: { width: 1, color: C.cash }, areaStyle: { color: "rgba(106,155,204,0.38)" }, data: cashPct }
       ]
     }));
-    var last = data[data.length - 1];
     if (last && last.allocation) {
-      document.getElementById("alloc-meta").innerHTML = "最新: QQQ " + (last.allocation.QQQ * 100).toFixed(1) + "% · SPY " + (last.allocation.SPY * 100).toFixed(1) + "% · CASH " + (last.allocation.CASH * 100).toFixed(1) + "%";
+      document.getElementById("alloc-meta").textContent = "最新: QQQ " + (last.allocation.QQQ * 100).toFixed(1) + "% · SPY " + (last.allocation.SPY * 100).toFixed(1) + "% · CASH " + (last.allocation.CASH * 100).toFixed(1) + "%";
     }
 
     var mult = data.map(function(p) { return +p.multiplier.toFixed(2); });
@@ -1358,22 +2473,202 @@ window.__DASHBOARD__ = __DATA_JSON__;
       xAxis: { type: "category", data: dates, axisLabel: { color: C.axisLabel, fontSize: 10 }, axisLine: { lineStyle: { color: C.axisLine } } },
       yAxis: { type: "value", min: 0, max: 2.5, axisLabel: { color: C.axisLabel, formatter: "{value}x" }, splitLine: { lineStyle: { color: C.gridLine } } },
       series: [{
-        name: "乘数", type: "bar", data: mult.map(function(v) {
-          var c = v >= 1.5 ? C.positive : v >= 1.0 ? C.strategy : v >= 0.75 ? C.warning : C.negative;
-          return { value: v, itemStyle: { color: c, opacity: 0.75 } };
-        })
+        name: "乘数", type: "line", step: "end", smooth: false, showSymbol: false,
+        lineStyle: { width: 2, color: C.warning },
+        areaStyle: { color: "rgba(212,168,83,0.12)" },
+        data: mult
       }]
     }));
   }
 
+  function renderMacroFeeds() {
+    var mf = (D.macroFeeds) || {};
+    var root = document.getElementById("macro-feeds");
+    if (!root) return;
+    // H1 fix: 默认就显示。available=false 时显示明确占位（避免空白让人困惑）。
+    root.classList.remove("is-collapsed");
+    root.classList.add("is-shown");
+    void root.offsetWidth;
+    root.style.display = "grid";
+    if (!mf.available) {
+      root.innerHTML =
+        '<div class="mf-header"><h3><span class="bar"></span>宏观参考内容（RSS · GDELT · 财经日历）</h3>' +
+        '<span class="mf-meta">暂不可用</span></div>' +
+        '<div class="mf-item"><span class="mf-meta">' + esc(mf.error || "本次构建未生成宏观内容（网络失败或首次构建）") + '</span></div>';
+      return;
+    }
+    root.style.gridTemplateColumns = "1fr 1fr 1fr";
+    root.style.gap = "14px";
+    root.style.background = "var(--panel)";
+    root.style.border = "1px solid var(--border)";
+    root.style.borderRadius = "var(--radius-lg)";
+    root.style.boxShadow = "var(--shadow)";
+    root.style.padding = "16px 18px";
+    root.style.marginTop = "14px";
+
+    function colHtml(title, items, formatter) {
+      var html = '<div class="mf-col">';
+      html += '<div class="mf-col-header"><h4>' + esc(title) + '</h4></div>';
+      html += '<div class="mf-col-items">';
+      if (!items || !items.length) {
+        html += '<div class="mf-item"><span class="mf-meta">（无数据）</span></div>';
+      } else {
+        for (var i = 0; i < items.length; i++) {
+          html += formatter(items[i]);
+        }
+      }
+      html += '</div></div>';
+      return html;
+    }
+
+    function rssFormatter(it) {
+      var ts = it.ts || "";
+      var url = it.url ? '<a class="mf-link" href="' + esc(it.url) + '" target="_blank" rel="noopener">查看</a>' : '';
+      // 翻译成功时，title= 显示英文原文（hover 看到）
+      var titleAttr = it.headlineEn ? ' title="' + esc(it.headlineEn) + '"' : '';
+      return '<div class="mf-item"' + titleAttr + '>' +
+        '<span class="mf-headline">' + esc(it.headline || "") + url + '</span>' +
+        '<span class="mf-time">' + esc(ts) + '</span>' +
+      '</div>';
+    }
+
+    function gdeltFormatter(it) {
+      var ts = it.ts || "";
+      var url = it.url ? '<a class="mf-link" href="' + esc(it.url) + '" target="_blank" rel="noopener">查看</a>' : '';
+      return '<div class="mf-item">' +
+        '<span class="mf-headline">' + esc(it.headline || "") + url + '</span>' +
+        '<span class="mf-time">' + esc(ts) + '</span>' +
+      '</div>';
+    }
+
+    function calFormatter(it) {
+      var date = it.ts || it.headline || "";
+      var url = it.url ? '<a class="mf-link" href="' + esc(it.url) + '" target="_blank" rel="noopener">查看</a>' : '';
+      var importance = it.importance || 0;
+      var impStr = importance > 0 ? ' ⭐'.repeat(Math.min(3, importance)) : '';
+      var titleAttr = it.headlineEn ? ' title="' + esc(it.headlineEn) + '"' : '';
+      return '<div class="mf-item"' + titleAttr + '>' +
+        '<span class="mf-headline">' + (it.country ? '<span class="mf-country" title="' + esc(it.country) + '">' + countryFlag(it.country) + '</span> ' : '') + esc(it.headline || "") + url + impStr + '</span>' +
+        '<span class="mf-time">' + esc(date) + '</span>' +
+      '</div>';
+    }
+
+    // ISO 国家代码 → 旗标 emoji (前 2 字符转 regional indicator)
+    function countryFlag(code) {
+      if (!code || code.length < 2) return "";
+      var s = code.toUpperCase();
+      // 用 regional indicator symbol 拼出旗标
+      var A = 0x1F1E6;
+      return String.fromCodePoint(A + (s.charCodeAt(0) - 65)) +
+             String.fromCodePoint(A + (s.charCodeAt(1) - 65));
+    }
+
+    var headerHtml =
+      '<div class="mf-header">' +
+        '<div>' +
+          '<h3><span class="bar"></span>宏观参考内容（财经日历 · 全球要闻）</h3>' +
+          '<div class="mf-sources">' +
+            '财经日历: ForexFactory + Fed Reserve 公开日历 (近 30 天 High+Med Impact) · ' +
+            '全球要闻: Reuters + Bloomberg + MarketWatch (财经) + Currents API (全球事件) + NewsAPI (Washington Post / Axios / AP / Bloomberg 等)' +
+          '</div>' +
+        '</div>' +
+        '<span class="mf-meta">' + esc(mf.fetchedAt || "") + '</span>' +
+      '</div>';
+
+    // 财经日历过滤 toggle — High Impact / Med Impact
+    var calFilterId = "mf-cal-filter";
+    var calAllId = "mf-cal-all";
+    var calHighId = "mf-cal-high";
+    var calMedId = "mf-cal-med";
+    var calItems = mf.calendar || [];
+    var calHighCount = calItems.filter(function(x) { return (x.importance || 0) >= 3; }).length;
+    var calMedCount = calItems.filter(function(x) { return (x.importance || 0) === 2; }).length;
+    var calFilterHtml =
+      '<div class="mf-col-header">' +
+        '<h4>财经日历</h4>' +
+        '<div class="mf-filter" id="' + calFilterId + '">' +
+          '<button class="mf-filter-btn active" data-mode="all" id="' + calAllId + '">全部 (' + calItems.length + ')</button>' +
+          '<button class="mf-filter-btn" data-mode="high" id="' + calHighId + '">⭐ High Impact (' + calHighCount + ')</button>' +
+          '<button class="mf-filter-btn" data-mode="med" id="' + calMedId + '">Med Impact (' + calMedCount + ')</button>' +
+        '</div>' +
+      '</div>';
+
+    function colHtmlWithHeader(headerHtml, title, items, formatter) {
+      var html = '<div class="mf-col">' + headerHtml;
+      html += '<div class="mf-col-items">';
+      if (!items || !items.length) {
+        html += '<div class="mf-item"><span class="mf-meta">（无数据）</span></div>';
+      } else {
+        for (var i = 0; i < items.length; i++) {
+          html += formatter(items[i]);
+        }
+      }
+      html += '</div></div>';
+      return html;
+    }
+
+    // 保存原始 calendar 引用（用于 filter 切换）
+    var calendarAll = mf.calendar || [];
+    // BUG FIX: 不要从 DOM dataset 读 mode，因为此时 calFilterHtml 还没注入。
+    // 改成 JS 变量闭包，初始 "all"，在 click handler 里更新。
+    var calCurrentMode = "all";
+
+    function renderCalCol() {
+      var mode = calCurrentMode;
+      var items;
+      if (mode === "high") {
+        items = calendarAll.filter(function(x) { return (x.importance || 0) >= 3; });
+      } else if (mode === "med") {
+        items = calendarAll.filter(function(x) { return (x.importance || 0) === 2; });
+      } else {
+        items = calendarAll;
+      }
+      return colHtmlWithHeader(calFilterHtml, "财经日历", items, calFormatter);
+    }
+
+    root.className = "macro-feeds anim-in anim-d3b is-shown";
+    // 2 列布局：财经日历 + 全球要闻（RSS + GDELT 已合并为 globalNews）
+    var bodyHtml =
+      renderCalCol() +
+      colHtml("全球要闻", mf.globalNews || [], rssFormatter);
+    root.innerHTML = headerHtml + bodyHtml;
+
+    // 绑定 filter 按钮
+    setTimeout(function() {
+      var btns = document.querySelectorAll('#' + calFilterId + ' .mf-filter-btn');
+      btns.forEach(function(btn) {
+        btn.addEventListener("click", function() {
+          btns.forEach(function(b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          // BUG FIX: 同步更新闭包变量 (而不是 DOM dataset — 首次渲染时 DOM 还没注入)
+          calCurrentMode = btn.dataset.mode;
+          // 重新渲染
+          var colItems = root.querySelector('.mf-col:last-child .mf-col-items');
+          if (colItems) {
+            var newItems = calCurrentMode === "high"
+              ? calendarAll.filter(function(x) { return (x.importance || 0) >= 3; })
+              : calendarAll;
+            var newHtml = '';
+            if (!newItems || !newItems.length) {
+              newHtml = '<div class="mf-item"><span class="mf-meta">（无数据）</span></div>';
+            } else {
+              for (var i = 0; i < newItems.length; i++) {
+                newHtml += calFormatter(newItems[i]);
+              }
+            }
+            colItems.innerHTML = newHtml;
+          }
+        });
+      });
+    }, 0);
+  }
+
   // ---- Watchlist (Overview) — card list, 移动端友好 ----
   function renderOverviewWatchlist() {
-    var top = D.signals.slice(0, 5);
+    var top = coreSignals();
     var signalMap = { "buy": "买入", "hold": "持有", "sell": "卖出", "avoid": "回避" };
-    var html = '<div class="etf-cards" role="list">';
+    var html = '<div class="etf-cards overview-core" role="list">';
     top.forEach(function(s) {
-      var reasonZh = translateReason(s.reason || "");
-      var reasonShort = reasonZh.length > 36 ? reasonZh.slice(0, 36) + "…" : reasonZh;
       var delta = (s.targetWeight - s.currentWeight);
       html += '<div class="etf-card" role="listitem" tabindex="0" aria-label="查看 ' + esc(s.ticker) + ' 详情" data-ticker="' + esc(s.ticker) + '">'
         + '<div class="etf-card-row">'
@@ -1382,22 +2677,14 @@ window.__DASHBOARD__ = __DATA_JSON__;
         + '</div>'
         + '<div class="etf-card-row etf-card-weights">'
         +   '<div><span class="etf-card-label">目标</span><span class="etf-card-value">' + fmtPct(s.targetWeight, false) + '</span></div>'
+        +   '<div><span class="etf-card-label">当前</span><span class="etf-card-value">' + fmtPct(s.currentWeight, false) + '</span></div>'
         +   '<div><span class="etf-card-label">Δ</span><span class="etf-card-value ' + deltaClass(delta) + '">' + fmtPct(delta) + '</span></div>'
         + '</div>'
-        + '<div class="etf-card-reason">' + esc(reasonShort) + '</div>'
+        + '<div class="etf-card-reason">综合分 ' + esc(s.finalScore.toFixed(2)) + ' · 数据 ' + esc(shortDate(s.dataDate)) + '</div>'
         + '</div>';
     });
     html += '</div>';
     document.getElementById("overview-watchlist").innerHTML = html;
-  }
-
-  function renderOverviewTrades() {
-    var trades = D.backtest.trades.slice(0, 10);
-    var actionMap = { "DCA_BUY": "定投买入", "MONTHLY_TRIM": "月度调仓" };
-    var rows = [["日期", "信号日期", "操作", "金额", "SPY %", "QQQ %", "乘数", "市场状态"]].concat(trades.map(function(t) {
-      return [t.date, t.signalDate, actionMap[t.action] || t.action, fmtUsd(t.amount), fmtPct(t.spyWeight, false), fmtPct(t.qqqWeight, false), t.multiplier ? t.multiplier + "x" : "—", translateRegime(t.regime)];
-    }));
-    document.getElementById("overview-trades").innerHTML = tableHtml(rows, ["", "", "", "num", "num", "num", "", ""]);
   }
 
   function tableHtml(rows, numCols, opts, trustedCols) {
@@ -1434,6 +2721,7 @@ window.__DASHBOARD__ = __DATA_JSON__;
     html += "</tbody></table>";
     return html;
   }
+
   // Build a signal pill with a known signal vocabulary. We construct the
   // span via DOM, never via string interpolation of caller-supplied data,
   // and clamp the kind to a fixed set so a malicious `s.signal` value can
@@ -1443,20 +2731,28 @@ window.__DASHBOARD__ = __DATA_JSON__;
     var safeKind = PILL_KINDS[kind] ? kind : "hold";
     return '<span class="pill ' + safeKind + '">' + esc(text) + '</span>';
   }
+  function isCoreEtfSignal(s) {
+    var ticker = String((s && s.ticker) || "").toUpperCase();
+    return ticker === "SPY" || ticker === "QQQ";
+  }
+  function coreSignals() {
+    return D.signals.filter(isCoreEtfSignal);
+  }
 
   // ---- Signals Page ----
   var currentFilter = "all";
   function renderSignals() {
-    var sigs = D.signals;
+    var sigs = coreSignals();
     document.getElementById("sig-meta").textContent = sigs.length + " 只 ETF · 信号日期 " + shortDate(D.summary.signalDate);
     drawSignalsTable();
     // signal-reason is text only — use textContent to avoid HTML/JS injection
     // via data.json rule_reason. The earlier innerHTML version was a XSS risk.
     var reasonEl = document.getElementById("signal-reason");
-    reasonEl.textContent = (D.raw.decision && D.raw.diagnosis && D.raw.diagnosis.rule_reason) || "—";
+    var rawReason = (D.raw.decision && D.raw.diagnosis && D.raw.diagnosis.rule_reason) || "—";
+    reasonEl.textContent = translateReason(rawReason);
   }
   function drawSignalsTable() {
-    var sigs = D.signals.filter(function(s) { return currentFilter === "all" || s.signal === currentFilter; });
+    var sigs = coreSignals().filter(function(s) { return currentFilter === "all" || s.signal === currentFilter; });
     var signalMap = { "buy": "买入", "hold": "持有", "sell": "卖出", "avoid": "回避" };
     // 简洁版：9 列；动量 / 风险 / 月度收益 移入抽屉
     var headers = ["#", "代码", "名称", "信号", "目标 %", "当前 %", "Δ", "综合分", "数据日期"];
@@ -1596,13 +2892,24 @@ window.__DASHBOARD__ = __DATA_JSON__;
     var roll = bt.rolling;
     if (roll.length) {
       initChart("bt-rolling", chartCommon({
+        // 给图例留足顶部空间：图例固定高度，grid 往下挪避免与图例重叠
+        legend: {
+          top: 6,
+          left: "center",
+          itemWidth: 18,
+          itemHeight: 10,
+          itemGap: 18,
+          textStyle: { color: "#b0aea5", fontFamily: "Poppins", fontSize: 12 }
+        },
+        grid: { left: 56, right: 56, top: 56, bottom: 36 },
         xAxis: { type: "category", data: roll.map(function(r) { return r.date; }), axisLabel: { color: C.axisLabel, fontSize: 10 }, axisLine: { lineStyle: { color: C.axisLine } } },
         yAxis: [
-          { type: "value", name: "收益率", axisLabel: { color: C.axisLabel, formatter: "{value}%" }, splitLine: { lineStyle: { color: C.gridLine } } },
-          { type: "value", name: "夏普", axisLabel: { color: C.axisLabel }, splitLine: { show: false } }
+          // 把轴名放在轴端，避免和图例在顶部争空间导致名称被截断
+          { type: "value", name: "收益率 %", nameTextStyle: { color: "#b0aea5", fontSize: 11, padding: [0, 0, 6, 0] }, nameLocation: "end", nameGap: 8, axisLabel: { color: C.axisLabel, formatter: "{value}%", fontSize: 10 }, splitLine: { lineStyle: { color: C.gridLine } } },
+          { type: "value", name: "夏普", nameTextStyle: { color: "#b0aea5", fontSize: 11, padding: [0, 0, 6, 0] }, nameLocation: "end", nameGap: 8, axisLabel: { color: C.axisLabel, fontSize: 10 }, splitLine: { show: false } }
         ],
         series: [
-          { name: "滚动 63 日收益", type: "bar", yAxisIndex: 0, data: roll.map(function(r) { return +(r.rollingReturn*100).toFixed(2); }), itemStyle: { color: C.strategy, opacity: 0.65 } },
+          { name: "滚动 63 日收益率", type: "bar", yAxisIndex: 0, data: roll.map(function(r) { return +(r.rollingReturn*100).toFixed(2); }), itemStyle: { color: C.strategy, opacity: 0.65 } },
           { name: "滚动夏普", type: "line", yAxisIndex: 1, smooth: true, showSymbol: false, lineStyle: { width: 2, color: C.warning }, data: roll.map(function(r) { return r.rollingSharpe; }) }
         ]
       }));
@@ -1617,29 +2924,6 @@ window.__DASHBOARD__ = __DATA_JSON__;
 
     renderDistribution(bt.regimeDistribution, bt.multiplierDistribution);
 
-    var actionMap = { "DCA_BUY": "定投买入", "MONTHLY_TRIM": "月度调仓" };
-    var trows = [["日期", "信号日期", "操作", "金额", "SPY %", "QQQ %", "乘数", "市场状态", "理由"]].concat(bt.trades.map(function(t) {
-      return [t.date, t.signalDate, actionMap[t.action] || t.action, fmtUsd(t.amount), fmtPct(t.spyWeight, false), fmtPct(t.qqqWeight, false), t.multiplier ? (typeof t.multiplier === "number" ? t.multiplier.toFixed(2) + "x" : t.multiplier) : "—", translateRegime(t.regime), translateReason(t.reason || "").slice(0, 70)];
-    }));
-    document.getElementById("bt-trades").innerHTML = tableHtml(trows, ["", "", "", "num", "num", "num", "num", "", ""]);
-
-    var p = bt.parameters;
-    var paramLabels = { "initialCapital": "初始资金", "weeklyBudget": "周定投额", "transactionCost": "交易成本", "riskFreeRate": "无风险利率", "contributionSchedule": "定投计划", "executionPrice": "执行价格", "signalTiming": "信号时机", "benchmark": "基准" };
-    var phtml = "";
-    Object.keys(p).forEach(function(k) {
-      phtml += '<div class="field"><div class="k">' + (paramLabels[k] || k) + '</div><div class="v">' + (typeof p[k] === "number" ? p[k].toFixed(4).replace(/\.?0+$/, "") : p[k]) + '</div></div>';
-    });
-    document.getElementById("bt-params").innerHTML = phtml;
-
-    var v = bt.verifier;
-    document.getElementById("bt-verifier").innerHTML = ''
-      + '<div class="dq-row"><div class="label">验证器</div><div class="value">'
-      +   '<span class="badge ' + (v.passed ? "positive" : "warning") + '">' + (v.passed ? "通过" : "警告") + '</span>'
-      +   '<span class="muted">' + (v.lookaheadWarning || "无前瞻警告") + '</span>'
-      + '</div></div>'
-      + '<div class="dq-row"><div class="label">Git 提交</div><div class="value"><code>' + (v.gitCommit || "—") + '</code></div></div>'
-      + '<div class="dq-row"><div class="label">脚本 SHA-256</div><div class="value"><code>' + (v.scriptSha256 || "—").slice(0, 32) + '…</code></div></div>'
-      + '<div class="dq-row"><div class="label">数据快照 SHA-256</div><div class="value"><code>' + (v.dataSnapshotSha256 || "—").slice(0, 32) + '…</code></div></div>';
   }
 
   function renderHeatmap(monthly) {
@@ -1647,34 +2931,170 @@ window.__DASHBOARD__ = __DATA_JSON__;
     var years = Array.from(new Set(monthly.map(function(m) { return m.year; }))).sort();
     var data = monthly.map(function(m) { return [m.month - 1, years.indexOf(m.year), +(m.return * 100).toFixed(2)]; });
     var maxAbs = Math.max(2, Math.max.apply(null, monthly.map(function(m) { return Math.abs(m.return * 100); })));
+    // 热力图配色: 白天用更亮的 5 段渐变, 暗黑用原来的深色 5 段渐变
+    var heatColors = (document.documentElement.getAttribute("data-theme") || "dark") === "light"
+      ? ["#e8956f", "#b48a2f", "#e8e6dc", "#7a8f50", "#4e7240"]
+      : ["#d97757", "#5c2a1a", "#1c1c1a", "#2a3a1c", "#788c5d"];
     initChart("bt-heatmap", {
       backgroundColor: "transparent",
-      tooltip: { position: "top", backgroundColor: "rgba(28,28,26,0.95)", borderColor: "rgba(176,174,165,0.15)", textStyle: { color: "#faf9f5" }, formatter: function(p) { return p.value[2].toFixed(2) + "%"; } },
+      tooltip: { position: "top", backgroundColor: getThemeColor("--panel-elev-solid", "#1c1c1a"), borderColor: getThemeColor("--border-subtle", "rgba(176,174,165,0.15)"), textStyle: { color: labelColor }, formatter: function(p) { return p.value[2].toFixed(2) + "%"; } },
       grid: { left: 50, right: 12, top: 20, bottom: 50 },
       xAxis: { type: "category", data: ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"], axisLabel: { color: "#b0aea5" }, splitArea: { show: true, areaStyle: { color: ["rgba(176,174,165,0.02)", "rgba(176,174,165,0.04)"] } } },
       yAxis: { type: "category", data: years, axisLabel: { color: "#b0aea5" }, splitArea: { show: true, areaStyle: { color: ["rgba(176,174,165,0.02)", "rgba(176,174,165,0.04)"] } } },
-      visualMap: { min: -maxAbs, max: maxAbs, calculable: false, orient: "horizontal", left: "center", bottom: 0, inRange: { color: ["#d97757", "#5c2a1a", "#1c1c1a", "#2a3a1c", "#788c5d"] }, textStyle: { color: "#b0aea5" } },
-      series: [{ name: "月度收益", type: "heatmap", data: data, label: { show: true, color: "#faf9f5", fontSize: 10, fontFamily: "DM Mono", formatter: function(p) { return p.value[2].toFixed(1); } } }]
+      visualMap: { min: -maxAbs, max: maxAbs, calculable: false, orient: "horizontal", left: "center", bottom: 0, inRange: { color: heatColors }, textStyle: { color: labelColor } },
+      series: [{ name: "月度收益", type: "heatmap", data: data, label: { show: true, color: labelColor, fontSize: 10, fontFamily: "DM Mono", formatter: function(p) { return p.value[2].toFixed(1); } } }]
     });
   }
 
   function renderDistribution(regime, mult) {
-    var regimeLabels = { "bull": "牛市", "normal": "正常", "bear": "熊市", "crisis": "危机" };
-    var cats = Object.keys(regime || {}).map(function(k) { return { k: regimeLabels[k] || k, v: +(regime[k] * 100).toFixed(2) }; });
-    var mlt = Object.keys(mult || {}).map(function(k) { return { k: k + "x", v: +(mult[k] * 100).toFixed(2) }; });
+    /*
+     * 时间策略 = 估值档 → 定投乘数（CAPE 驱动）
+     * 把"估值档"和"定投乘数"用两个 xAxis 画在同一坐标系里，
+     * 然后用 markLine 在 y=100 处画一条横线 + 在 x=50 画一条竖线，模拟出"左→右映射"的可视化
+     */
+    // 跟随主题的 label 主色（labelColor 在顶部已定义）
+    var regimeLabels = { "fair": "正常", "elevated": "偏高", "expensive": "高估", "very_expensive": "极高估" };
+    var regimeHint = {
+      "fair": "CAPE 中位",
+      "elevated": "略高于均值",
+      "expensive": "显著高于均值",
+      "very_expensive": "极端高位"
+    };
+    var regimeTone = {
+      "fair": C.positive, "elevated": C.benchmark, "expensive": C.warning, "very_expensive": C.negative
+    };
+    var regimeOrder = ["fair", "elevated", "expensive", "very_expensive"];
+    var cats = regimeOrder
+      .filter(function(k) { return regime && Object.prototype.hasOwnProperty.call(regime, k); })
+      .map(function(k) {
+        return { raw: k, k: regimeLabels[k] || k, v: +(regime[k] * 100).toFixed(2), tone: regimeTone[k] || C.strategy };
+      });
+    var mlt = Object.keys(mult || {}).map(function(k) {
+      var n = parseFloat(k);
+      var hint = !isNaN(n) ? (n <= 0.6 ? "高度保守" : n <= 0.9 ? "偏保守" : n <= 1.1 ? "基础预算" : "积极加仓") : "";
+      return { k: k + "x", v: +(mult[k] * 100).toFixed(2), hint: hint, n: n };
+    });
+    // 4 条映射规则：估值档索引 i → 乘数档索引 j（按 4 档估值的视觉位置找最匹配乘数）
+    // 估值由低到高：fair→1.0x/1.25x（最大）、elevated→0.75x、expensive→0.5x/0.75x、very_expensive→0.5x（最小）
+    // 在 5 档乘数中找最匹配位置（x 坐标用类别索引）
+    var mlIdx = {};
+    mlt.forEach(function(m, i) { mlIdx[m.k] = i; });
+    var mapping = [
+      { from: 0, to: 4, label: "正常→积极" }, // fair → 1.5x
+      { from: 1, to: 2, label: "偏高→基础" }, // elevated → 1.0x
+      { from: 2, to: 1, label: "高估→偏保守" }, // expensive → 0.75x
+      { from: 3, to: 0, label: "极高估→高度保守" }  // very_expensive → 0.5x
+    ];
     initChart("bt-dist", {
       backgroundColor: "transparent",
-      tooltip: { trigger: "axis", backgroundColor: "rgba(28,28,26,0.95)", borderColor: "rgba(176,174,165,0.15)", textStyle: { color: "#faf9f5" } },
-      legend: { textStyle: { color: "#b0aea5", fontFamily: "Poppins" }, top: 0 },
-      grid: { left: 50, right: 20, top: 36, bottom: 30 },
-      xAxis: [
-        { type: "category", data: cats.map(function(c) { return c.k; }), axisLabel: { color: "#b0aea5" } },
-        { type: "category", data: mlt.map(function(c) { return c.k; }), axisLabel: { color: "#b0aea5" }, position: "bottom", offset: 30 }
+      tooltip: {
+        backgroundColor: getThemeColor("--panel-elev-solid", "#1c1c1a"),
+        borderColor: getThemeColor("--border-subtle", "rgba(176,174,165,0.15)"),
+        textStyle: { color: labelColor },
+        formatter: function(p) {
+          if (p.seriesName === "估值档") {
+            var c = cats[p.dataIndex];
+            if (!c) return "";
+            return "CAPE 估值档：" + c.k + "<br/>占比 " + c.v + "%<br/><span style='color:#b0aea5'>" + (regimeHint[c.raw] || "") + "</span>";
+          }
+          if (p.seriesName === "定投乘数") {
+            var m = mlt[p.dataIndex];
+            if (!m) return "";
+            return "定投乘数：" + m.k + "<br/>占比 " + m.v + "%<br/><span style='color:#b0aea5'>" + m.hint + "</span>";
+          }
+          return "";
+        }
+      },
+      title: [
+        { text: "CAPE 估值档", left: "20%", top: 8, textAlign: "center", textStyle: { color: labelColor, fontSize: 12, fontWeight: 600 } },
+        { text: "定投乘数", left: "72%", top: 8, textAlign: "center", textStyle: { color: labelColor, fontSize: 12, fontWeight: 600 } },
+        { text: "↓ 同一时间策略：估值越低 → 乘数越高（积极加仓）；估值越高 → 乘数越低（防御降档）↓", left: "center", bottom: 6, textAlign: "center", textStyle: { color: "#d4a853", fontSize: 11, fontWeight: 500 } }
       ],
-      yAxis: { type: "value", axisLabel: { color: "#b0aea5", formatter: "{value}%" }, splitLine: { lineStyle: { color: C.gridLine } } },
+      grid: [
+        // 左侧 4 档估值
+        { left: 40, right: "53%", top: 50, bottom: 50, containLabel: false },
+        // 右侧 5 档乘数
+        { left: "53%", right: 20, top: 50, bottom: 50, containLabel: false }
+      ],
+      xAxis: [
+        {
+          type: "category", gridIndex: 0,
+          data: cats.map(function(c) { return c.k; }),
+          axisLabel: { color: labelColor, fontSize: 11 },
+          axisLine: { lineStyle: { color: C.axisLine } },
+          axisTick: { show: false }
+        },
+        {
+          type: "category", gridIndex: 1,
+          data: mlt.map(function(c) { return c.k; }),
+          axisLabel: { color: labelColor, fontSize: 11 },
+          axisLine: { lineStyle: { color: C.axisLine } },
+          axisTick: { show: false }
+        }
+      ],
+      yAxis: [
+        { type: "value", gridIndex: 0, axisLabel: { show: false }, splitLine: { show: false }, axisLine: { show: false }, axisTick: { show: false } },
+        { type: "value", gridIndex: 1, axisLabel: { show: false }, splitLine: { show: false }, axisLine: { show: false }, axisTick: { show: false } }
+      ],
       series: [
-        { name: "市场状态 %", type: "bar", data: cats.map(function(c) { return c.v; }), itemStyle: { color: C.strategy } },
-        { name: "乘数 %", type: "bar", xAxisIndex: 1, data: mlt.map(function(c) { return c.v; }), itemStyle: { color: C.benchmark } }
+        {
+          name: "估值档",
+          type: "bar",
+          xAxisIndex: 0, yAxisIndex: 0,
+          barWidth: 36,
+          data: cats.map(function(c) { return { value: c.v, itemStyle: { color: c.tone, borderRadius: [4,4,0,0] } }; }),
+          label: {
+            show: true, position: "top",
+            color: labelColor, fontSize: 11, fontFamily: "Poppins",
+            formatter: function(p) {
+              var c = cats[p.dataIndex];
+              if (!c) return p.value + "%";
+              return c.k + " " + p.value + "%" + (regimeHint[c.raw] ? "\n" + regimeHint[c.raw] : "");
+            }
+          },
+          markLine: {
+            silent: true,
+            symbol: ["none", "none"],
+            lineStyle: { color: "#d4a853", width: 1.2, type: "dashed", opacity: 0.7 },
+            label: { show: false },
+            // 从每个左柱中心指向右侧对应乘数柱（用 grid 间相对坐标不容易，
+            // 改用 markPoint 在右侧画对端点和连接线 series 组合）
+            data: []
+          }
+        },
+        {
+          name: "定投乘数",
+          type: "bar",
+          xAxisIndex: 1, yAxisIndex: 1,
+          barWidth: 28,
+          data: mlt.map(function(c) { return { value: c.v, itemStyle: { color: C.benchmark, borderRadius: [4,4,0,0] } }; }),
+          label: {
+            show: true, position: "top",
+            color: labelColor, fontSize: 11, fontFamily: "Poppins",
+            formatter: function(p) {
+              var c = mlt[p.dataIndex];
+              if (!c) return p.value + "%";
+              return c.k + " " + p.value + "%" + (c.hint ? "\n" + c.hint : "");
+            }
+          }
+        },
+        // 中央枢纽（视觉锚点，放在右侧 grid 中央，缩小到 60x20 不抢戏）
+        {
+          name: "枢纽",
+          type: "scatter",
+          xAxisIndex: 1, yAxisIndex: 1,
+          symbol: "roundRect",
+          symbolSize: [60, 20],
+          itemStyle: { color: "rgba(212,168,83,0.18)", borderColor: "#d4a853", borderWidth: 1 },
+          label: {
+            show: true,
+            color: "#d4a853", fontSize: 9, fontFamily: "Poppins",
+            formatter: "CAPE 枢纽"
+          },
+          data: [{ value: [2, 0] }],  // 放在第 2 个乘数（1.0x）位置、y=0
+          z: 5,
+          silent: true
+        }
       ]
     });
   }
@@ -1682,6 +3102,7 @@ window.__DASHBOARD__ = __DATA_JSON__;
   // ---- Data Quality Page (10 rows) ----
   function renderDataQuality() {
     var dq = D.dataQuality;
+    var bt = D.backtest;
     var dqHtml = '';
     dqHtml += dqRow("PIT 检查", dq.pitCheck.tone, dq.pitCheck.label === "Passed" ? "通过" : dq.pitCheck.label === "Failed" ? "未通过" : dq.pitCheck.label, dq.pitCheck.details);
     dqHtml += dqRow("CAPE 年份", "info", "可用 " + shortDate(dq.cape.availableAt), "观测月份 " + (dq.cape.observationMonth || "—") + " · CAPE=" + (dq.cape.value || "—") + " · 来源 " + (dq.cape.source || "—") + " · SHA256 <code>" + (dq.cape.vintageFileSha256 || "—").slice(0, 16) + "…</code>");
@@ -1701,6 +3122,24 @@ window.__DASHBOARD__ = __DATA_JSON__;
     el.innerHTML = allPassed
       ? "✓ 所有 PIT 检查通过。信号使用前一日收盘，执行使用次日开盘。CAPE 年份严格 PIT。验证器发现 0 处差异。"
       : "⚠ 部分检查未通过。详见下方详情。此状态下交易建议已禁用。";
+
+    var p = bt.parameters || {};
+    var paramLabels = { "initialCapital": "初始资金", "weeklyBudget": "周定投额", "transactionCost": "交易成本", "riskFreeRate": "无风险利率", "contributionSchedule": "定投计划", "executionPrice": "执行价格", "signalTiming": "信号时机", "benchmark": "基准" };
+    var phtml = "";
+    Object.keys(p).forEach(function(k) {
+      phtml += '<div class="field"><div class="k">' + (paramLabels[k] || k) + '</div><div class="v">' + (typeof p[k] === "number" ? p[k].toFixed(4).replace(/\.?0+$/, "") : p[k]) + '</div></div>';
+    });
+    document.getElementById("bt-params").innerHTML = phtml;
+
+    var v = bt.verifier || {};
+    document.getElementById("bt-verifier").innerHTML = ''
+      + '<div class="dq-row"><div class="label">验证器</div><div class="value">'
+      +   '<span class="badge ' + (v.passed ? "positive" : "warning") + '">' + (v.passed ? "通过" : "警告") + '</span>'
+      +   '<span class="muted">' + (v.lookaheadWarning || "无前瞻警告") + '</span>'
+      + '</div></div>'
+      + '<div class="dq-row"><div class="label">Git 提交</div><div class="value"><code>' + (v.gitCommit || "—") + '</code></div></div>'
+      + '<div class="dq-row"><div class="label">脚本 SHA-256</div><div class="value"><code>' + (v.scriptSha256 || "—").slice(0, 32) + '…</code></div></div>'
+      + '<div class="dq-row"><div class="label">数据快照 SHA-256</div><div class="value"><code>' + (v.dataSnapshotSha256 || "—").slice(0, 32) + '…</code></div></div>';
   }
   function dqRow(label, tone, value, details) {
     return '<div class="dq-row"><div class="label">' + label + '</div><div class="value">'
@@ -1728,12 +3167,66 @@ window.__DASHBOARD__ = __DATA_JSON__;
     fields.forEach(function(f) {
       html += '<div class="field"><div class="k">' + f[0] + '</div><div class="v">' + f[1] + '</div></div>';
     });
+    // Yellow chip for price-return-only data so the user notices the
+    // caveat even if they don't read the JSON metadata.
+    if (s.priceReturnOnly) {
+      html += '<div class="field" style="border-color:#c8a02a;background:#fff8e1;">'
+            + '<div class="k">⚠ 数据警示</div>'
+            + '<div class="v" style="color:#8a6a00;font-size:12px;line-height:1.4;">'
+            + esc(s.priceReturnWarning || "price_return_only=true：当前为未做分红调整的数据。")
+            + '</div></div>';
+    }
     document.getElementById("settings-main").innerHTML = html;
+
+    // ---- Editable ETF pool (F4) ----
+    // Browser has no fs API, so the "save" action copies the rebuild
+    // command to the clipboard rather than writing the file itself.
+    var poolEl = document.getElementById("settings-etfpool");
+    if (poolEl) {
+      var initialPool = s.etfPool.join(", ");
+      poolEl.innerHTML = ''
+        + '<div class="field" style="grid-column:1/-1;">'
+        +   '<div class="k">ETF 池（编辑）</div>'
+        +   '<div class="v">'
+        +     '<input id="etf-pool-input" type="text" value="' + esc(initialPool) + '" '
+        +       'style="width:100%;padding:6px 8px;font-size:13px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);" '
+        +       'aria-label="ETF 池，逗号分隔" />'
+        +     '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;">'
+        +       '<button id="etf-pool-save" type="button" '
+        +         'style="padding:5px 10px;background:var(--accent);color:#fff;border:0;border-radius:4px;cursor:pointer;">复制重跑命令</button>'
+        +       '<span id="etf-pool-status" class="muted" style="font-size:12px;"></span>'
+        +     '</div>'
+        +   '</div>'
+        + '</div>';
+      var btn = document.getElementById("etf-pool-save");
+      var status = document.getElementById("etf-pool-status");
+      btn.addEventListener("click", function() {
+        var raw = document.getElementById("etf-pool-input").value || "";
+        var tickers = raw.split(",").map(function(x) { return x.trim().toUpperCase(); }).filter(Boolean);
+        if (tickers.length < 2) {
+          status.textContent = "至少需要 2 个 ticker";
+          return;
+        }
+        var cmd = "python3 scripts/current_market_advice.py --etf-pool " + tickers.join(",") + " --output-dir references/current_run\npython3 scripts/build_dashboard.py --no-open";
+        var ok = false;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(cmd);
+            ok = true;
+          }
+        } catch (e) { ok = false; }
+        if (ok) {
+          status.textContent = "命令已复制 ✓  跑完后 dashboard 会自动消费新池子";
+        } else {
+          status.textContent = "请手动复制：\n" + cmd;
+        }
+      });
+    }
 
     var signalMap = { "buy": "买入", "hold": "持有", "sell": "卖出", "avoid": "回避" };
     var assetMap = { "equity": "股票", "bond": "债券", "commodity": "商品", "cash": "现金" };
     var poolHtml = '';
-    D.signals.forEach(function(sig) {
+    coreSignals().forEach(function(sig) {
       // 卡片可点击打开抽屉（与 signal 表行一致交互）+ 键盘可访问
       poolHtml += '<div class="etf-pool-card" role="button" tabindex="0" aria-label="查看 ' + esc(sig.ticker) + ' 详情" data-ticker="' + esc(sig.ticker) + '">'
         + '<div class="etf-ticker">' + esc(sig.ticker) + '</div>'
@@ -1772,8 +3265,18 @@ window.__DASHBOARD__ = __DATA_JSON__;
   }
 
   // ---- Router ----
-  var VALID_PAGES = ["overview", "signals", "backtest", "data-quality", "settings"];
-  function showPage(page) {
+  var VALID_PAGES = ["overview", "data-quality"];
+  var VALID_SECTIONS = ["decision", "signals", "performance", "diagnostics"];
+  function setActiveSection(section) {
+    document.querySelectorAll("[data-section-link]").forEach(function(link) {
+      link.classList.toggle("active", link.getAttribute("data-section-link") === section);
+    });
+  }
+  function showPage(page, section) {
+    if (page === "backtest" || page === "settings") {
+      page = "overview";
+      if (history && history.replaceState) history.replaceState(null, "", "#overview");
+    }
     // 归一化：非法 hash 修正为 overview（同时改写 URL，避免下次刷新再次走 fallback）
     if (VALID_PAGES.indexOf(page) < 0) {
       page = "overview";
@@ -1782,7 +3285,7 @@ window.__DASHBOARD__ = __DATA_JSON__;
       }
     }
     document.querySelectorAll(".page").forEach(function(el) { el.classList.remove("active"); });
-    document.querySelectorAll("#nav a").forEach(function(a) { a.classList.remove("active"); });
+    document.querySelectorAll("#nav a[data-page]").forEach(function(a) { a.classList.remove("active"); });
     var target = document.getElementById("page-" + page);
     target.classList.add("active");
     var link = document.querySelector('#nav a[data-page="' + page + '"]');
@@ -1790,22 +3293,71 @@ window.__DASHBOARD__ = __DATA_JSON__;
     // 按需懒渲染当前页图表（避免初始化时一次性渲染所有隐藏页）
     runRenderer(page);
     Object.keys(charts).forEach(function(k) { try { charts[k].resize(); } catch (e) {} });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (page === "overview") {
+      var activeSection = VALID_SECTIONS.indexOf(section) >= 0 ? section : "decision";
+      setActiveSection(activeSection);
+      if (section) {
+        window.requestAnimationFrame(function() {
+          var sectionEl = document.getElementById("section-" + activeSection);
+          if (sectionEl) sectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } else {
+      setActiveSection("");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }
   function route() {
     var hash = (location.hash || "#overview").replace("#", "");
-    showPage(hash);
+    if (VALID_SECTIONS.indexOf(hash) >= 0) showPage("overview", hash);
+    else showPage(hash);
   }
   window.addEventListener("hashchange", route);
+
+  if ("IntersectionObserver" in window) {
+    var sectionObserver = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting && document.getElementById("page-overview").classList.contains("active")) {
+          setActiveSection(entry.target.getAttribute("data-section"));
+        }
+      });
+    }, { rootMargin: "-90px 0px -65% 0px", threshold: 0 });
+    document.querySelectorAll(".dashboard-section[data-section]").forEach(function(section) {
+      sectionObserver.observe(section);
+    });
+  }
 
   // ---- 初始化 ----
 
   // 全局事件代理：所有 [data-ticker] 行（信号表 + 总览 watchlist）点击 / 键盘均可打开抽屉
   document.body.addEventListener("click", function(ev) {
+    var tip = ev.target.closest && ev.target.closest("[data-info-tip]");
+    document.querySelectorAll("[data-info-tip].is-open").forEach(function(openTip) {
+      if (openTip !== tip) {
+        openTip.classList.remove("is-open");
+        openTip.setAttribute("aria-expanded", "false");
+      }
+    });
+    if (tip) {
+      ev.stopPropagation();
+      var shouldOpen = !tip.classList.contains("is-open");
+      tip.classList.toggle("is-open", shouldOpen);
+      tip.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+      return;
+    }
     var row = ev.target.closest && ev.target.closest("[data-ticker]");
     if (row) openDrawer(row.getAttribute("data-ticker"));
   });
   document.body.addEventListener("keydown", function(ev) {
+    if (ev.key === "Escape") {
+      document.querySelectorAll("[data-info-tip].is-open").forEach(function(tip) {
+        tip.classList.remove("is-open");
+        tip.setAttribute("aria-expanded", "false");
+      });
+      return;
+    }
     if (ev.key !== "Enter" && ev.key !== " ") return;
     var row = ev.target.closest && ev.target.closest("[data-ticker]");
     if (row && ev.target === row) { ev.preventDefault(); openDrawer(row.getAttribute("data-ticker")); }
@@ -1824,13 +3376,13 @@ window.__DASHBOARD__ = __DATA_JSON__;
     });
   });
 
-  // 导出全部 CSV：明确不受当前筛选影响
+  // 导出全部 CSV：明确不受当前筛选影响，但只导出当前 UI 使用的核心 ETF。
   var exportBtn = document.getElementById("export-csv");
   if (exportBtn) {
-    exportBtn.setAttribute("title", "导出所有 ETF 信号数据，不受当前筛选影响");
+    exportBtn.setAttribute("title", "导出 SPY / QQQ 信号数据，不受当前筛选影响");
     exportBtn.addEventListener("click", function() {
       var rows = [["排名","代码","名称","类别","信号","综合评分","目标权重","当前权重","数据日期","可用时间","理由"]];
-      D.signals.forEach(function(s) {
+      coreSignals().forEach(function(s) {
         rows.push([s.rank, s.ticker, s.name, s.assetClass, s.signal, s.finalScore, s.targetWeight, s.currentWeight, s.dataDate, s.availableAt, s.reason]);
       });
       downloadCsv("信号数据-全部.csv", rows);
@@ -1847,25 +3399,36 @@ window.__DASHBOARD__ = __DATA_JSON__;
   }
 
   // 注册每页的图表渲染器：仅当进入该页时才执行
-  var renderedFlags = { overview: false, backtest: false };
+  var renderedFlags = { overview: false };
   registerRenderer("overview", function() {
-    if (!renderedFlags.overview) { renderedFlags.overview = true; renderEquityCharts(); }
-    else Object.keys(charts).forEach(function(k) { try { charts[k].resize(); } catch (e) {} });
-  });
-  registerRenderer("backtest", function() {
-    if (!renderedFlags.backtest) { renderedFlags.backtest = true; renderBacktest(); }
+    if (!renderedFlags.overview) {
+      renderedFlags.overview = true;
+      renderEquityCharts();
+      renderBacktest();
+    }
     else Object.keys(charts).forEach(function(k) { try { charts[k].resize(); } catch (e) {} });
   });
 
-  // 首屏渲染：状态栏 / 决策卡 / KPI / overview 非图表部分 / signals 静态部分 / 数据质量 / 设置
-  renderStatusBar();
-  renderDecision();
-  renderKpis();
-  renderOverviewWatchlist();
-  renderOverviewTrades();
-  renderSignals();
-  renderDataQuality();
-  renderSettings();
+  // 首屏渲染：状态栏 / 决策卡 / KPI / 信号静态部分 / 数据质量
+  // H2 fix: 包裹每个渲染函数在 try/catch 中，单个失败不再中断后续渲染。
+  // 之前 renderLlmCopilot 或 renderMacroFeeds 抛错时，
+  // renderSignals / renderOverviewWatchlist 就不会被调用，导致
+  // "信号" / "执行" / "新闻" 模块全部空白。
+  function safeRender(name, fn) {
+    try { fn(); }
+    catch (e) {
+      try { console.error("[dashboard] " + name + " failed:", e); } catch (_) {}
+    }
+  }
+  safeRender("renderStatusBar", renderStatusBar);
+  safeRender("initDecisionHistory", initDecisionHistory);
+  safeRender("startDecisionClock", startDecisionClock);
+  safeRender("renderDecisionContext", renderDecisionContext);
+  // LLM 副驾驶已停用 — renderLlmCopilot 函数保留,不再调用
+  safeRender("renderMacroFeeds", renderMacroFeeds);
+  safeRender("renderOverviewWatchlist", renderOverviewWatchlist);
+  safeRender("renderSignals", renderSignals);
+  safeRender("renderDataQuality", renderDataQuality);
   route();
 
   // 监听 ECharts 异步加载完成：如有页面正在展示，重新触发该页渲染
@@ -1887,6 +3450,59 @@ window.__DASHBOARD__ = __DATA_JSON__;
 
   window.addEventListener("resize", function() {
     Object.keys(charts).forEach(function(k) { try { charts[k].resize(); } catch (e) {} });
+  });
+
+  /* =============== 主题切换 =============== */
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    var lbl = document.getElementById("theme-toggle-label");
+    if (lbl) lbl.textContent = theme === "light" ? "白天" : "暗黑";
+    try { localStorage.setItem("etf-dashboard-theme", theme); } catch (e) {}
+    // echarts 主题色：重新读 CSS 变量，让所有图重画
+    refreshEchartsTheme();
+  }
+  function refreshEchartsTheme() {
+    var cs = getComputedStyle(document.documentElement);
+    function readVar(name) { return cs.getPropertyValue(name).trim() || "#888"; }
+    // 直接覆盖 IIFE 内的 C 引用（因为 chartCommon 用 C.strategy 等）
+    C.axisLabel = readVar("--text-muted");
+    C.axisLine = readVar("--border-subtle");
+    C.gridLine = readVar("--border-subtle");
+    C.benchmark = readVar("--blue");
+    C.cash = readVar("--blue");
+    C.positive = readVar("--positive");
+    C.negative = readVar("--negative");
+    C.warning = readVar("--warning");
+    C.strategy = readVar("--orange");
+    // 强制重画：清掉所有 echarts 实例并重新渲染当前页（用新色）
+    Object.keys(charts).forEach(function(k) { try { charts[k].dispose(); } catch (e) {} delete charts[k]; });
+    var fn = chartRenderers[currentPage];
+    renderedFlags[currentPage] = false;
+    if (fn) fn();
+  }
+  var themeBtn = document.getElementById("theme-toggle");
+  if (themeBtn) {
+    // 初始化 label
+    var cur = document.documentElement.getAttribute("data-theme") || "dark";
+    var initLbl = document.getElementById("theme-toggle-label");
+    if (initLbl) initLbl.textContent = cur === "light" ? "白天" : "暗黑";
+    themeBtn.addEventListener("click", function() {
+      var now = document.documentElement.getAttribute("data-theme") || "dark";
+      applyTheme(now === "light" ? "dark" : "light");
+    });
+  }
+
+  // 时间范围筛选按钮 (1M / 3M / 6M / 1Y / 全部)
+  document.querySelectorAll(".time-range-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll(".time-range-btn").forEach(function(b){ b.classList.remove("active"); });
+      btn.classList.add("active");
+      currentTimeRange = btn.dataset.range || "all";
+      // 重画 3 张图 (注: 仅在策略表现页 renderEquityCharts 已被调用过)
+      if (typeof renderEquityCharts === "function" && RAW_SERIES && RAW_SERIES.length) {
+        try { renderEquityCharts(); } catch(e) { /* 静默 */ }
+      }
+    });
   });
 })();
 </script>
