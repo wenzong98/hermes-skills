@@ -36,6 +36,7 @@
 | `com.hermes.cape-monthly-snapshot` | 每月 5 日 09:00 | `~/.hermes/scripts/cape-monthly-snapshot.sh` | `~/.hermes/cron/cape-monthly-snapshot.log` |
 | `com.hermes.usetf-dashboard-server` | RunAtLoad + KeepAlive | `~/.hermes/scripts/usetf-dashboard-server.sh` | `~/.hermes/cron/usetf-dashboard-server.log` |
 | `com.hermes.usetf-state-rotate` | 周日 03:00 | `~/.hermes/scripts/usetf-state-rotate.sh` | `~/.hermes/cron/usetf-state-rotate.log` |
+| `com.hermes.usetf-macro-feeds-refresh` | 每天 09:00 / 18:00 | `~/.hermes/scripts/usetf-macro-feeds-refresh.sh` | `~/.hermes/cron/usetf-macro-feeds-refresh.log` |
 
 `usetf-daily-refresh.sh` 内部三步:
 1. `python3 scripts/run_daily_pipeline.py` — 数据 → 建议 → 回测 → dashboard
@@ -47,6 +48,7 @@
 launchctl kickstart -k gui/$(id -u)/com.hermes.usetf-daily-refresh
 launchctl kickstart -k gui/$(id -u)/com.hermes.cape-monthly-snapshot
 launchctl kickstart -k gui/$(id -u)/com.hermes.usetf-state-rotate
+launchctl kickstart -k gui/$(id -u)/com.hermes.usetf-macro-feeds-refresh
 ```
 
 **state-rotate 三条策略** (每周日 03:00 自动跑):
@@ -58,6 +60,18 @@ launchctl kickstart -k gui/$(id -u)/com.hermes.usetf-state-rotate
 ```bash
 python3 scripts/state_rotate.py              # 实际跑
 python3 scripts/state_rotate.py --dry-run    # 仅打印不动文件
+```
+
+**macro-feeds-refresh 补抓 + 告警机制** (每天 09:00 / 18:00 自动跑):
+- **目的**:填补 `usetf-daily-refresh` 05:30 那次到下一天之间的"新闻 + 日历"盲区(早 9 点看开盘前新闻,晚 6 点看当日总结)
+- **范围**:**只动 `references/dashboard/data.json["macroFeeds"]` 字段**,不重 build 整页、不动 advice / backtest / Telegram push
+- **失败处理**:任何源失败 → 追加一行 JSON 到 `~/.hermes/cron/macro_feeds_refresh_errors.jsonl`;**连续 2 次失败**(同 source + 同 error_type)→ 追加 `alerted=true` 行(24h 内不重复)
+- **查看告警**:`python3 scripts/macro_feeds_alert.py --print`(健康检查第 9 步)
+
+手动跑 + 验证:
+```bash
+python3 scripts/macro_feeds_refresh.py       # 实际跑(2-3 分钟完成)
+python3 scripts/macro_feeds_alert.py --print # 打印当前未读告警
 ```
 
 **查看状态**:
@@ -147,6 +161,11 @@ tail -10 ~/.hermes/cron/cape-monthly-snapshot.log
 # 8. state-rotate 跑了没?本周 archive 在不在?
 ls -la ~/.hermes/state/us_etf/history/ | tail -3
 # 期望有本周 ISO 周编号的 .tar.gz (例如 2026-W24.tar.gz)
+
+# 9. macro feed 补抓跑过没?有没有 unresolved 告警?
+python3 scripts/macro_feeds_alert.py --print
+# 期望:"no alerts (all sources within tolerance)"
+# 不期望:有 rss/gdelt/calendar 连续 2 次失败的告警
 ```
 
 ### 故障排查固定顺序
